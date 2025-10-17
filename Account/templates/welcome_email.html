@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+  <style>
+    body {
+      background-color: #f5f7fa;
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+    .email-container {
+      max-width: 600px;
+      background-color: #ffffff;
+      margin: 40px auto;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      padding: 40px 30px;
+    }
+    .header {
+      text-align: left;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      color: #6c4ef3;
+      font-size: 22px;
+      font-weight: bold;
+    }
+    .logo img {
+      width: 36px;
+      margin-right: 8px;
+    }
+    .date {
+      color: #999;
+      font-size: 14px;
+    }
+    .content {
+      margin-top: 40px;
+      text-align: center;
+    }
+    h2 {
+      color: #1b2e5a;
+      font-size: 22px;
+      margin-bottom: 20px;
+    }
+    p {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #444;
+      text-align: left;
+    }
+    .otp {
+      font-size: 28px;
+      font-weight: bold;
+      color: #1b2e5a;
+      margin: 20px 0;
+    }
+    .note {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 25px;
+    }
+    .footer {
+      text-align: left;
+      font-size: 15px;
+      color: #555;
+      margin-top: 30px;
+      border-top: 1px solid #eee;
+      padding-top: 15px;
+    }
+    .team {
+      margin-top: 20px;
+      font-weight: bold;
+      color: #1b2e5a;
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header">
+      <div class="logo">
+        <img src="https://i.ibb.co/9vWcFSv/AJAXX-logo.png" alt="AJAXX">
+        AJAXX
+      </div>
+    </div>
+
+    <div class="content">
+      <h2>Your One-Time Password</h2>
+      <p>Dear <strong>{{username}}</strong>,</p>
+      <p>Here is your One-Time Password to securely log in to your AJAXX account:</p>
+       
+      <div class="note">Note: This OTP is valid for 5 minutes.</div>
+      <p>If you did not request this OTP, please disregard this email or contact our support team.</p>
+      <p>Thank you for learning with AJAXX!</p>
+    </div>
+    <b><h1>
+    </h1></b>
+
+    <div class="footer">
+      Team AJAXX.
+    </div>
+  </div>
+</body>
+</html> 
