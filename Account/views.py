@@ -27,6 +27,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated,IsAdminUser
 from django.contrib.auth import get_user_model
 
+from django.core.mail import EmailMessage
 User = get_user_model()
 
 # user view 
@@ -115,23 +116,40 @@ class RegisterAPIView(APIView):
 """ ----------------again send OTP API view------------------- """
 
 
+
+
 class ResendOTPApiView(APIView):
     def post(self, request, *args, **kwargs):
         email = request.data.get('email')
+        
+        # 1. Validate user existence
         user = get_object_or_404(User, email=email)
 
+        # 2. Generate and save the new OTP
         otp_code = generate_otp()
         user.profile.otp = otp_code
         user.profile.save()
 
-        send_mail(
-            'Your OTP Code : ',
-            f'Your New OTP Code Is : {otp_code}',
-            'mdmamun340921@gmail.com',
-            [email]
-        )
+        # 3. Render the HTML template
+        # The 'context' dictionary contains data for the template (e.g., the OTP code)
+        html_content = render_to_string('send_code.html', {'otp': otp_code, 'user': user})
 
-        return Response({'Message': 'OTP Has Been Resent To Your Email'}, status=status.HTTP_200_OK)
+        # 4. Construct and send the HTML email
+        try:
+            msg = EmailMessage(
+                subject='Reset Your Password - Your New Code',  # Email Subject
+                body=html_content,  # Use the rendered HTML content
+                from_email='mdmamun340921@gmail.com', # Use settings.DEFAULT_FROM_EMAIL or a hardcoded email
+                to=[email],  # Recipient list
+            )
+            msg.content_subtype = "html"  # Set the email type to HTML
+            msg.send()
+
+            return Response({'Message': 'OTP Has Been Resent To Your Email'}, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            # Handle potential email sending errors
+            return Response({'Error': f'Failed to send email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
