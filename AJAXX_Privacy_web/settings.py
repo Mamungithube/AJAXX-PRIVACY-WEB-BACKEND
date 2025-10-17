@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     #Local apps
     'privacy_app',
     'Account',
+    'service',
 
 
 ]
