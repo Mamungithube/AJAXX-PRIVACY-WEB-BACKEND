@@ -379,3 +379,55 @@ class ChangePasswordViewSet(viewsets.GenericViewSet):
             return Response({"message": "Password changed successfully!"}, status=status.HTTP_204_NO_CONTENT)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+""" -------------------User Block view----------------------- """
+
+from rest_framework.decorators import action
+
+
+User = get_user_model()
+
+class UserBlockViewSet(viewsets.GenericViewSet):
+    permission_classes = [IsAdminUser] 
+
+    @action(detail=True, methods=['post'])
+    def block(self, request, pk=None):
+        try:
+            user_to_block = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        if user_to_block == request.user:
+            return Response(
+                {"detail": "You cannot block your own admin account."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user_to_block.is_active = False
+        user_to_block.save()
+        
+        return Response(
+            {"detail": f"User '{user_to_block.username}' has been successfully blocked (is_active=False)."},
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=['post'])
+    def unblock(self, request, pk=None):
+        try:
+            user_to_unblock = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        user_to_unblock.is_active = True
+        user_to_unblock.save()
+        
+        return Response(
+            {"detail": f"User '{user_to_unblock.username}' has been successfully unblocked (is_active=True)."},
+            status=status.HTTP_200_OK
+        )

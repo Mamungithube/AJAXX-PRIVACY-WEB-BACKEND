@@ -53,7 +53,7 @@ class Profile(models.Model):
     Gender = models.CharField(max_length=1, choices=GENDER_CHOICES, blank=True, null=True)
     Bio = models.TextField(blank=True, null=True)
     social_auth_provider = models.CharField(max_length=50, blank=True, null=True)
-    is_verified = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=True)
     
     def __str__(self):  
         return self.user.Fullname if self.user.Fullname else self.user.email

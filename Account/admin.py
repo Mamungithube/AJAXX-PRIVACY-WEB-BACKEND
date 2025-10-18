@@ -10,7 +10,7 @@ class UserAdmin(admin.ModelAdmin):
     ordering = ('Fullname',)
 
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'Country', 'City', 'Province', 'Gender', 'is_verified')
+    list_display = ('user', 'otp', 'id')
     search_fields = ('user__email', 'user__Fullname')
 
     
