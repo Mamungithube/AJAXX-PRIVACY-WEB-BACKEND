@@ -9,12 +9,13 @@ from .serializers import (
     LoginSerializer, 
     UserLoginSerializer, 
     ResetPasswordSerializer,
+    ChangePasswordSerializer,
     # GoogleAuthSerializer,
     ProfileSerializer,
     ProfileUpdateSerializer
 )
 from .models import Profile
-
+from rest_framework import viewsets
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -354,3 +355,27 @@ class ProfileUpdateView(generics.UpdateAPIView):
         # Return full profile data after update
         profile_serializer = ProfileSerializer(instance)
         return Response(profile_serializer.data)
+    
+
+""" -------------------Change Password view----------------------- """
+
+class ChangePasswordViewSet(viewsets.GenericViewSet):
+    serializer_class = ChangePasswordSerializer
+    permission_classes = [IsAuthenticated] 
+
+    def create(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:  
+            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        user = request.user
+        serializer = self.get_serializer(data=request.data, context={"request": request})
+
+        if serializer.is_valid():
+            if not user.check_password(serializer.validated_data["old_password"]):
+                return Response({"old_password": ["Wrong password."]}, status=status.HTTP_400_BAD_REQUEST)
+            
+            user.set_password(serializer.validated_data["new_password"])
+            user.save()
+            return Response({"message": "Password changed successfully!"}, status=status.HTTP_204_NO_CONTENT)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

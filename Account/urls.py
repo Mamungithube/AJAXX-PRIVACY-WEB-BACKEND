@@ -12,6 +12,7 @@ from .views import (
     ProfileUpdateView, 
     AdminDeleteUserView,
     TotalUserCountView,
+    ChangePasswordViewSet,
     # GoogleLoginView
 )
 from rest_framework_simplejwt.views import (
@@ -36,7 +37,7 @@ urlpatterns = [
     path('admin/delete-user/<int:user_id>/', AdminDeleteUserView.as_view(), name='admin-delete-user'),
     path('users/count/', TotalUserCountView.as_view(), name='user-count'),
     path('user/is-admin/', IsAdminCheckView.as_view(), name='is-admin'),
-
+    path('change_pass/',ChangePasswordViewSet.as_view({'post':'create'}), name='change_password'),
 
 
     # profile detail and update

@@ -8,6 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import serializers
 from .models import User, Profile
 from django.contrib.auth import get_user_model
+from django.contrib.auth import password_validation
 User = get_user_model()
 
 """ ----------------User Serializer------------------- """
@@ -157,7 +158,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Profile
-        fields = ['id', 'user', 'profile_picture', 'address', 'is_verified']
+        fields = ['id', 'user', 'profile_picture', 'Country','City','Province','Gender','Bio']
         read_only_fields = ['is_verified']
         
     def to_representation(self, instance):
@@ -176,4 +177,22 @@ class ProfileSerializer(serializers.ModelSerializer):
 class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ['profile_picture', 'address']
+        fields = ['profile_picture', 'Country','City','Province','Gender','Bio']
+
+
+""" ----------------Change Password Serializer------------------- """
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True)
+    confirm_password = serializers.CharField(required=True, write_only=True)
+
+    def validate_new_password(self, value):
+        password_validation.validate_password(value, self.context['request'].user)
+        return value
+
+    def validate(self, data):
+        if data["new_password"] != data["confirm_password"]:
+            raise serializers.ValidationError({"confirm_password": "New password and confirm password do not match."})
+        return data
