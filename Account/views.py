@@ -32,26 +32,53 @@ from django.core.mail import EmailMessage
 User = get_user_model()
 
 # user view 
+from rest_framework import status
+from django.db.models import Q  # For search
+
+
+
+
 class UserAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-    # permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser] 
 
     def get(self, request, pk=None):
         if pk:
             user = get_object_or_404(User, pk=pk)
             serializer = UserSerializer(user)
-        else:
-            users = User.objects.all()
-            serializer = UserSerializer(users, many=True)
+            return Response(serializer.data)
+
+        users = User.objects.all()
+
+        # 🔍 Query params গ্রহণ করা
+        email = request.GET.get('email')
+        search = request.GET.get('search')
+
+
+        # 📧 Email দিয়ে ফিল্টার করা
+        if email:
+            users = users.filter(email__icontains=email)
+
+        # 🔍 Search দিয়ে ফিল্টার করা
+        if search:
+            users = users.filter(
+                Q(username__icontains=search) |
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search)
+            )
+
+        serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
 
-
     def post(self, request):
-        serializer = UserSerializer(data=request.data)
+        # ✅ Check if list or single dict
+        is_many = isinstance(request.data, list)
+
+        serializer = UserSerializer(data=request.data, many=is_many)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
