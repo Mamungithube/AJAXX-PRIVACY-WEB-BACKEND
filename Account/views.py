@@ -39,7 +39,7 @@ from django.db.models import Q  # For search
 
 
 class UserAPIView(APIView):
-    permission_classes = [IsAdminUser] 
+    permission_classes = [IsAdminUser]
 
     def get(self, request, pk=None):
         if pk:
@@ -49,16 +49,12 @@ class UserAPIView(APIView):
 
         users = User.objects.all()
 
-        # 🔍 Query params গ্রহণ করা
+        # Query params
         email = request.GET.get('email')
         search = request.GET.get('search')
 
-
-        # 📧 Email দিয়ে ফিল্টার করা
         if email:
             users = users.filter(email__icontains=email)
-
-        # 🔍 Search দিয়ে ফিল্টার করা
         if search:
             users = users.filter(
                 Q(username__icontains=search) |
@@ -66,13 +62,26 @@ class UserAPIView(APIView):
                 Q(last_name__icontains=search)
             )
 
-        serializer = UserSerializer(users, many=True)
-        return Response(serializer.data)
+        # ✅ Pagination parameters
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 10))
+        start = (page - 1) * page_size
+        end = start + page_size
+        paginated_users = users[start:end]
+
+        serializer = UserSerializer(paginated_users, many=True)
+        total_users = users.count()
+
+        return Response({
+            'total': total_users,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': (total_users + page_size - 1) // page_size,
+            'results': serializer.data
+        })
 
     def post(self, request):
-        # ✅ Check if list or single dict
         is_many = isinstance(request.data, list)
-
         serializer = UserSerializer(data=request.data, many=is_many)
         if serializer.is_valid():
             serializer.save()
