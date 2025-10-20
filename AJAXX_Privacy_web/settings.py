@@ -45,12 +45,14 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'djstripe',
+    'stripe',
 
     #Local apps
     'privacy_app',
     'Account',
     'service',
-
+    'Subscriptions',
 
 ]
 
@@ -198,3 +200,13 @@ EMAIL_HOST_PASSWORD = env("EMAIL_PASSWORD")
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+DJSTRIPE_FOREIGN_KEY_TO_FIELD = "id"
+# Stripe settings
+STRIPE_LIVE_MODE = False
+STRIPE_SECRET_KEY = env('stripe_secret_key')
+STRIPE_PUBLISHABLE_KEY = env('stripe_publishable_key')
+STRIPE_WEBHOOK_SECRET = env('stripe_webhook_secret')
+
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')

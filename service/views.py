@@ -1,15 +1,37 @@
-from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from . import models
-from . import serializers
 from django.db.models import Q
+from django.core.mail import send_mail
+from django.conf import settings
+from . import models, serializers
 
 class ContactusViewset(viewsets.ModelViewSet):
     queryset = models.ContactUs.objects.all()
     serializer_class = serializers.ContactUsSerializer
-    permission_classes = [IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+
+            # ইমেইল পাঠানো
+            email = serializer.validated_data.get('email')
+            subject = serializer.validated_data.get('Subject')
+            message = serializer.validated_data.get('Description')
+
+            send_mail(
+                subject=f"New Contact Message: {subject}",
+                message=f"From: {email}\n\nMessage:\n{message}",
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[settings.EMAIL_HOST_USER],
+                fail_silently=False,
+            )
+
+            return Response({'message': 'Message sent successfully!'}, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
