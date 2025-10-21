@@ -1,45 +1,87 @@
-# subscriptions/models.py
 from django.db import models
-from django.conf import settings
-from django.utils import timezone
+from django.contrib.auth import get_user_model
+import uuid
 
-class Plan(models.Model):
-    name = models.CharField(max_length=50, unique=True, blank=True, null=True)
-    description = models.TextField()
-    price = models.DecimalField(max_digits=6, decimal_places=2)
-    stripe_price_id = models.CharField(max_length=100, blank=True, null=True)
-    stripe_product_id = models.CharField(max_length=100, blank=True, null=True)
-    interval = models.CharField(max_length=20, default='month')
-    
-    # Plan features
-    identities_limit = models.IntegerField(default=10)
-    scans_per_month = models.IntegerField(default=10)
-    automated_data_removal = models.BooleanField(default=True)
-    pdf_export_limit = models.IntegerField(null=True, blank=True)
-    support_hours = models.CharField(max_length=50, default='24-48h')
-    
-    def __str__(self):
-        return self.name if self.name else f"Plan {self.id}"
+User = get_user_model()
 
 
 class Subscription(models.Model):
-    STATUS_CHOICES = [
-        ('active', 'Active'),
-        ('inactive', 'Inactive'),
-        ('past_due', 'Past Due'),
-        ('canceled', 'Canceled'),
-        ('trialing', 'Trialing'),
+    """Subscription Plan Model"""
+    BILLING_CYCLE_CHOICES = [
+        ('monthly', 'Monthly'),
+        ('yearly', 'Yearly'),
     ]
     
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    plan = models.ForeignKey(Plan, on_delete=models.CASCADE)
-    stripe_subscription_id = models.CharField(max_length=100, unique=True, blank=True, null=True)
-    stripe_customer_id = models.CharField(max_length=100, blank=True, null=True)
-    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='inactive')
-    current_period_start = models.DateTimeField(null=True, blank=True)
-    current_period_end = models.DateTimeField(null=True, blank=True)
+    title = models.CharField(max_length=255)
+    short_description = models.TextField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    billing_cycle = models.CharField(max_length=20, choices=BILLING_CYCLE_CHOICES)
+    features = models.JSONField(default=list)  # Store array of features
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+    
+    class Meta:
+        db_table = 'subscriptions'
+        ordering = ['-created_at']
+    
     def __str__(self):
-        return f"{self.user.email} - {self.plan.name}"
+        return f"{self.title} - {self.billing_cycle}"
+
+
+class Payment(models.Model):
+    """Payment Transaction Model"""
+    STATUS_CHOICES = [
+        ('succeeded', 'Succeeded'),
+        ('failed', 'Failed'),
+        ('pending', 'Pending'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payments')
+    subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE, related_name='payments')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    transaction_id = models.CharField(max_length=255, unique=True)
+    invoice_id = models.CharField(max_length=255, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    payment_date = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'payments'
+        ordering = ['-payment_date']
+        indexes = [
+            models.Index(fields=['transaction_id']),
+            models.Index(fields=['status']),
+            models.Index(fields=['payment_date']),
+        ]
+    
+    def __str__(self):
+        return f"Payment {self.transaction_id} - {self.status}"
+    
+    @staticmethod
+    def generate_invoice_id():
+        """Generate unique invoice ID"""
+        return f"INV-{uuid.uuid4()}"
+
+
+class UserSubscription(models.Model):
+    """User's Active Subscription"""
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('expired', 'Expired'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='active_subscription')
+    plan = models.ForeignKey(Subscription, on_delete=models.CASCADE)
+    starts_at = models.DateTimeField()
+    expires_at = models.DateTimeField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'user_subscriptions'
+    
+    def __str__(self):
+        return f"{self.user.email} - {self.plan.title}"
