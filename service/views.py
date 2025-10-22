@@ -47,7 +47,7 @@ class ReviewViewset(viewsets.ModelViewSet):
         reviews = models.Review.objects.all()
 
         # 🔍 Query parameters
-        search = request.GET.get('search')
+        search = request.GET.get('search')  
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 10))
 
@@ -92,3 +92,14 @@ class ReviewViewset(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
+# import requests
+
+# def send_to_n8n(data):
+#     webhook_url = "https://mamun50.app.n8n.cloud/webhook-test/data-scan" 
+#     response = requests.post(webhook_url, json=data)
+#     print(response.status_code, response.text)

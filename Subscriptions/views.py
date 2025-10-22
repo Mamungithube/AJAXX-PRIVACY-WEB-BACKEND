@@ -23,7 +23,10 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 class SubscriptionViewSet(viewsets.ModelViewSet):
-    """Subscription CRUD Operations"""
+
+    """---------Subscription CRUD Operations---------------"""
+
+
     queryset = Subscription.objects.all()
     serializer_class = SubscriptionSerializer
     
@@ -45,7 +48,11 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         }, status=status.HTTP_201_CREATED)
     
     def update(self, request, *args, **kwargs):
-        """Update Subscription Plan"""
+
+
+        """--------Update Subscription Plan----------"""
+
+
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
@@ -59,7 +66,9 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         })
     
     def destroy(self, request, *args, **kwargs):
-        """Delete Subscription Plan"""
+
+        """--------Delete Subscription Plan----------"""
+
         instance = self.get_object()
         plan_name = instance.title
         instance.delete()
@@ -72,7 +81,9 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
-    """Payment Operations"""
+
+    """------------Payment Operations----------"""
+
     queryset = Payment.objects.select_related('user', 'subscription').all()
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
@@ -233,7 +244,10 @@ class PaymentViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'], url_path='total-earnings')
     def total_earnings(self, request):
-        """Get Total Earnings"""
+
+
+        """-------------------Get Total Earnings----------------------"""
+
         total = Payment.objects.filter(status='succeeded').aggregate(
             total=Sum('amount')
         )['total'] or 0
@@ -264,7 +278,10 @@ class PaymentViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'], url_path='monthly-stats')
     def monthly_stats(self, request):
-        """Get Monthly Earnings Stats with Growth Percentage"""
+
+        """------------Get Monthly Earnings Stats with Growth Percentage----------"""
+
+
         now = timezone.now()
         current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         previous_month_start = (current_month_start - relativedelta(months=1))
@@ -357,9 +374,12 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
 @csrf_exempt
 @api_view(['POST'])
-@permission_classes([])
+@permission_classes([IsAuthenticated])
 def stripe_webhook(request):
-    """Handle Stripe Webhooks"""
+
+    """----------Handle Stripe Webhooks-----------"""
+
+    
     payload = request.body
     sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
     webhook_secret = settings.STRIPE_WEBHOOK_SECRET
