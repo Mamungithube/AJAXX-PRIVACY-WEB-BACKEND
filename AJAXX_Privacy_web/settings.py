@@ -27,9 +27,12 @@ SECRET_KEY =env("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+import os
+from dotenv import load_dotenv
 
-ALLOWED_HOSTS = []
-
+load_dotenv()
+# ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
 AUTH_USER_MODEL = "Account.User"
 # Application definition
 
@@ -72,7 +75,7 @@ INSTALLED_APPS = [
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=50),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=10),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': False,
@@ -96,7 +99,7 @@ SIMPLE_JWT = {
 
     'JTI_CLAIM': 'jti',
     'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
-    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=50),
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=10),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
