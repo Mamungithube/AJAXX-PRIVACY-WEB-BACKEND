@@ -33,8 +33,7 @@ import environ
 env = environ.Env()
 environ.Env.read_env()
 # ALLOWED_HOSTS = []
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
-print("✅ ALLOWED_HOSTS:", ALLOWED_HOSTS)
+ALLOWED_HOSTS = ["*"]
 
 
 AUTH_USER_MODEL = "Account.User"
