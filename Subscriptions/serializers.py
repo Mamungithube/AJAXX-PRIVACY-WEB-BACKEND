@@ -10,7 +10,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subscription
         fields = ['id', 'title', 'short_description', 'price', 'billing_cycle', 
-                  'features', 'created_at', 'updated_at']
+                   'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
