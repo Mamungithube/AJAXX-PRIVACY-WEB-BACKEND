@@ -16,7 +16,6 @@ class Subscription(models.Model):
     short_description = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
     billing_cycle = models.CharField(max_length=20, choices=BILLING_CYCLE_CHOICES)
-    features = models.JSONField(default=list)  # Store array of features
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
