@@ -3,8 +3,6 @@ from django.contrib.auth import get_user_model
 import uuid
 
 User = get_user_model()
-
-
 class Subscription(models.Model):
     """Subscription Plan Model"""
     BILLING_CYCLE_CHOICES = [

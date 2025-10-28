@@ -34,3 +34,8 @@ class ProductSerializer(serializers.ModelSerializer):
             
         except (TypeError, AttributeError):
               return Decimal(0)
+        
+        super().save(*args, **kwargs)
+
+def __str__(self):
+        return self.category
