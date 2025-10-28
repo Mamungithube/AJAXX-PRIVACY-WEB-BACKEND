@@ -236,7 +236,7 @@ class LoginAPIView(APIView):
                 user_serializer = UserLoginSerializer(user)
                 return Response(user_serializer.data, status=status.HTTP_200_OK)
 
-            return Response({'error': 'Invalid Credentials'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'User name and password do not match'}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({'error': 'Invalid data'}, status=status.HTTP_400_BAD_REQUEST)
 
