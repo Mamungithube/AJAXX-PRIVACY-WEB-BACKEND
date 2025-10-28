@@ -212,8 +212,11 @@ class VerifyOTPApiView(APIView):
 
 
 """ ----------------Login view------------------- """
+from rest_framework.permissions import AllowAny
+
 class LoginAPIView(APIView):
     serializer_class = LoginSerializer
+    permission_classes = [AllowAny]  # ✅ এটা MUST থাকতে হবে
 
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
@@ -222,24 +225,37 @@ class LoginAPIView(APIView):
             email = serializer.validated_data['email']
             password = serializer.validated_data['password']
 
-            # ইউজারকে authenticate করো
             user = authenticate(email=email, password=password)
 
             if user:
                 if not user.is_active:
-                    return Response({'error': 'Account not activated. Verify OTP first!'},
-                                    status=status.HTTP_403_FORBIDDEN)
+                    return Response(
+                        {'error': 'Account not activated. Verify OTP first!'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
 
                 login(request, user)
 
-                # এবার User instance দিয়েই serializer তৈরি করবো
-                user_serializer = UserLoginSerializer(user)
-                return Response(user_serializer.data, status=status.HTTP_200_OK)
+                # Generate JWT tokens
+                refresh = RefreshToken.for_user(user)
+                
+                return Response({
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh),
+                    'user': {
+                        'id': user.id,
+                        'email': user.email,
+                        'Fullname': user.Fullname,
+                        'is_staff': user.is_staff,
+                    }
+                }, status=status.HTTP_200_OK)
 
-            return Response({'error': 'User name and password do not match'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Email and password do not match'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        return Response({'error': 'Invalid data'}, status=status.HTTP_400_BAD_REQUEST)
-
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class BaseResponseMixin:
     def success_response(self, message, data=None, status_code=status.HTTP_200_OK):
