@@ -18,8 +18,8 @@ environ.Env.read_env()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ✅ CORS Configuration - সঠিক syntax
-CORS_ALLOW_ALL_ORIGINS = True  # Development এর জন্য সব allow করুন
+
+CORS_ALLOW_ALL_ORIGINS = True  
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -61,7 +61,7 @@ ALLOWED_HOSTS = ['*']
 AUTH_USER_MODEL = "Account.User"
 
 # ==================== INSTALLED APPS ====================
-# ✅ corsheaders MUST be at the top of third-party apps
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -86,7 +86,7 @@ INSTALLED_APPS = [
 ]
 
 # ==================== MIDDLEWARE ====================
-# ✅ CorsMiddleware MUST be at the very top
+
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware', 
     'django.middleware.security.SecurityMiddleware',
@@ -101,7 +101,7 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'AJAXX_Privacy_web.urls'
 
 # ==================== REST FRAMEWORK ====================
-# ✅ Only ONE REST_FRAMEWORK configuration
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
