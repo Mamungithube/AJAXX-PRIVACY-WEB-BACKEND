@@ -313,24 +313,26 @@ class LogoutAPIView(BaseResponseMixin, generics.GenericAPIView):
 """ ----------------Forgot Password view------------------- """
 
 class ForgotPasswordAPIView(APIView):
-
-    # Ensure user is authenticated
-    permission_classes = [permissions.IsAuthenticated]
     serializer_class = ResetPasswordSerializer
 
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            user = request.user  # Get the authenticated user from the token
+            email = serializer.validated_data['email']
             password = serializer.validated_data['password']
 
-            # Update password
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                return Response({'detail': 'User with this email does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+
             user.set_password(password)
             user.save()
 
             return Response({'detail': 'Password has been reset successfully'}, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
