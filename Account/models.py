@@ -20,16 +20,16 @@ class UserManager(BaseUserManager):
 
 
 GENDER_CHOICES = (
-        ('M', 'Male'),
-        ('F', 'Female'),
-        ('O', 'Other'),
+        ('male', 'Male'),
+        ('female', 'Female'),
+        ('other', 'Other'),
     )
 
 
 class User(AbstractUser):
     username = None  # Remove the username field
-    Fullname = models.CharField(max_length=55)
     email = models.EmailField(unique=True)
+    Fullname = models.CharField(max_length=55)
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
     
@@ -50,7 +50,7 @@ class Profile(models.Model):
     Country = models.CharField(max_length=56, blank=True, null=True)
     City = models.CharField(max_length=35, blank=True, null=True)
     Province = models.CharField(max_length=35, blank=True, null=True)
-    Gender = models.CharField(max_length=1, choices=GENDER_CHOICES, blank=True, null=True)
+    Gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True)
     Bio = models.TextField(blank=True, null=True)
     social_auth_provider = models.CharField(max_length=50, blank=True, null=True)
     is_verified = models.BooleanField(default=True)

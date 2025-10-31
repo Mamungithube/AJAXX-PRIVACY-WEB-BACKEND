@@ -153,20 +153,14 @@ class ResetPasswordSerializer(serializers.Serializer):
 
 """ ----------------Profile Serializer------------------- """
 class ProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
+    fullname = serializers.SerializerMethodField()
     
     class Meta:
         model = Profile
-        fields = ['id', 'user', 'profile_picture', 'Country','City','Province','Gender','Bio']
-        read_only_fields = ['is_verified']
-        
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        if instance.profile_picture:
-            representation['profile_picture'] = instance.profile_picture.url
-        else:
-            representation['profile_picture'] = None
-        return representation
+        fields = [ 'fullname', 'profile_picture', 'Country', 'City', 'Province', 'Gender', 'Bio']
+    
+    def get_fullname(self, obj):
+        return obj.user.Fullname
 
 
 
@@ -174,9 +168,25 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
+    fullname = serializers.CharField(source='user.Fullname', required=False)
+
     class Meta:
         model = Profile
-        fields = ['profile_picture', 'Country','City','Province','Gender','Bio']
+        fields = ['fullname', 'profile_picture', 'Country','City','Province','Gender','Bio']
+
+    def update(self, instance, validated_data):
+        # Update User Fullname
+        user_data = validated_data.pop('user', {})
+        if 'Fullname' in user_data:
+            instance.user.Fullname = user_data['Fullname']
+            instance.user.save()
+        
+        # Update Profile fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
 
 
 """ ----------------Change Password Serializer------------------- """
