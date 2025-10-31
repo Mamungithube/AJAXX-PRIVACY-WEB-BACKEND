@@ -142,6 +142,7 @@ class UserLoginSerializer(serializers.ModelSerializer):
 """ ----------------Reset password Serializer------------------- """
 
 class ResetPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()  # ✅ Add this
     password = serializers.CharField(write_only=True, min_length=8)
     confirm_password = serializers.CharField(write_only=True, min_length=8)
 
@@ -149,8 +150,6 @@ class ResetPasswordSerializer(serializers.Serializer):
         if data['password'] != data['confirm_password']:
             raise serializers.ValidationError("Passwords do not match")
         return data
-    
-
 
 """ ----------------Profile Serializer------------------- """
 class ProfileSerializer(serializers.ModelSerializer):
