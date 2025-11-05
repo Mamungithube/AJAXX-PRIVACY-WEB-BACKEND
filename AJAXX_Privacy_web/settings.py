@@ -246,3 +246,7 @@ STRIPE_PUBLISHABLE_KEY = env('stripe_publishable_key')
 STRIPE_WEBHOOK_SECRET = env('stripe_webhook_secret')
 
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
+
+
+OPTERY_API_KEY = "YOUR_API_KEY"
+OPTERY_BASE_URL = "https://api.optery.com/v1"
