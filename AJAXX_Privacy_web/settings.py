@@ -118,7 +118,7 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=10),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
@@ -248,5 +248,10 @@ STRIPE_WEBHOOK_SECRET = env('stripe_webhook_secret')
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
 
 
-OPTERY_API_KEY = "YOUR_API_KEY"
-OPTERY_BASE_URL = "https://api.optery.com/v1"
+OPTERY_API = env('OPTERY_API_KEY')
+OPTERY_BASE = env('OPTERY_BASE_URL')
+
+
+# Debug করার জন্য print করুন
+print(f"OPTERY_BASE: {OPTERY_BASE}")
+print(f"OPTERY_API: {OPTERY_API[:10]}...") 

@@ -7,7 +7,6 @@ from .serializers import (
     UserSerializer, 
     RegistrationSerializer, 
     LoginSerializer, 
-    UserLoginSerializer, 
     ResetPasswordSerializer,
     ChangePasswordSerializer,
     # GoogleAuthSerializer,

@@ -1,6 +1,6 @@
 from django.urls import path
-from .views import PrivacyInfoView
+from . import views
 
 urlpatterns = [
-    path("optery/privacy/<str:email>/", PrivacyInfoView.as_view(), name="privacy-info"),
+    path("api/get_databrokers_list/", views.get_databrokers_list, name="get-brokers-list"),
 ]
