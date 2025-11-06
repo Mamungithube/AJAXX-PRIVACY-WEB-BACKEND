@@ -20,7 +20,7 @@ class UserSerializer(serializers.ModelSerializer):
             'Fullname': {'required': False},
             'email': {'required': False}
         }
-
+    
     def update(self, instance, validated_data):
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
