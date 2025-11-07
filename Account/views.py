@@ -1,3 +1,4 @@
+from re import search
 from rest_framework import (
     generics, 
     permissions, 
@@ -54,11 +55,11 @@ class UserAPIView(APIView):
 
         if email:
             users = users.filter(email__icontains=email)
+
         if search:
             users = users.filter(
-                Q(username__icontains=search) |
-                Q(first_name__icontains=search) |
-                Q(last_name__icontains=search)
+                Q(Fullname__icontains=search) |
+                Q(email__icontains=search)
             )
 
         # ✅ Pagination parameters
@@ -86,7 +87,6 @@ class UserAPIView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 
