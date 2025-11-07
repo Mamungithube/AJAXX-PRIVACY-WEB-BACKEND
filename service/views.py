@@ -1,5 +1,7 @@
+
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework import status, viewsets
 from rest_framework import viewsets, status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
 from django.core.mail import send_mail
@@ -37,35 +39,50 @@ class ContactusViewset(viewsets.ModelViewSet):
 
 
 
+
 class ReviewViewset(viewsets.ModelViewSet):
     queryset = models.Review.objects.all()
     serializer_class = serializers.ReviewSerializer
-    permission_classes = [IsAuthenticated]
 
-    # ✅ Pagination + Filtering + Search
+    # ✅ Different permissions per action
+    def get_permissions(self):
+        if self.action == "list" or self.action == "retrieve":
+            return [AllowAny()]  # Anyone can view
+        return [IsAuthenticated()]  # Only logged-in can edit
+
+    # ✅ List API with Search + Pagination + ?all=true support
     def list(self, request, *args, **kwargs):
         reviews = models.Review.objects.all()
 
-        # 🔍 Query parameters
-        search = request.GET.get('search')  
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 10))
+        search = request.GET.get('search')
+        show_all = request.GET.get('all', 'false').lower() == 'true'
 
-        # Optional search (for example: by title or content)
+        # 🔍 Search
         if search:
             reviews = reviews.filter(
-                Q(title__icontains=search) | 
+                Q(title__icontains=search) |
                 Q(content__icontains=search) |
                 Q(user__username__icontains=search)
             )
 
-        # ✅ Pagination logic
+        # ✅ If ?all=true → no pagination
+        if show_all:
+            serializer = self.get_serializer(reviews, many=True)
+            return Response({
+                "total": reviews.count(),
+                "results": serializer.data
+            })
+
+        # ✅ Pagination
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 10))
+
         total_reviews = reviews.count()
         start = (page - 1) * page_size
         end = start + page_size
-        paginated_reviews = reviews[start:end]
 
-        serializer = self.get_serializer(paginated_reviews, many=True)
+        paginated = reviews[start:end]
+        serializer = self.get_serializer(paginated, many=True)
 
         return Response({
             "total": total_reviews,
@@ -75,31 +92,23 @@ class ReviewViewset(viewsets.ModelViewSet):
             "results": serializer.data
         })
 
-    # ✅ সম্পূর্ণ রিভিউ আপডেট (PUT)
+    # ✅ PUT Update
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=False)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-    # ✅ আংশিক আপডেট (PATCH)
+    # ✅ PATCH Partial Update
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 
 
 
-# import requests
-
-# def send_to_n8n(data):
-#     webhook_url = "https://mamun50.app.n8n.cloud/webhook-test/data-scan" 
-#     response = requests.post(webhook_url, json=data)
-#     print(response.status_code, response.text)

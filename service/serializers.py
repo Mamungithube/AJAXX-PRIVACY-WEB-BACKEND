@@ -8,7 +8,7 @@ class ContactUsSerializer(serializers.ModelSerializer):
 
 
 class ReviewSerializer(serializers.ModelSerializer):
-    reviewer_name = serializers.CharField(source='reviewer.username', read_only=True)
+    reviewer_name = serializers.CharField(source='reviewer.Fullname', read_only=True)
 
     class Meta:
         model = models.Review

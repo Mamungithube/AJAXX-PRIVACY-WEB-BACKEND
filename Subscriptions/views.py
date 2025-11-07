@@ -22,11 +22,14 @@ from .utils import send_payment_email
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
+from rest_framework.exceptions import NotFound
+from rest_framework.response import Response
+from rest_framework import status
+
+
 class SubscriptionViewSet(viewsets.ModelViewSet):
-
-    """---------Subscription CRUD Operations---------------"""
-
-
+    """Subscription CRUD Operations"""
+    
     queryset = Subscription.objects.all()
     serializer_class = SubscriptionSerializer
     
@@ -34,6 +37,39 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [permission() for permission in self.permission_classes]
+    
+    def get_object(self):
+        """Override to provide custom error message"""
+        try:
+            return super().get_object()
+        except Subscription.DoesNotExist:
+            raise NotFound({
+                'success': False,
+                'message': 'Subscription not found',
+                'data': None
+            })
+    
+    def list(self, request, *args, **kwargs):
+        """List all subscriptions"""
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        
+        return Response({
+            'success': True,
+            'message': 'Subscriptions retrieved successfully',
+            'data': serializer.data
+        })
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Get single subscription"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        
+        return Response({
+            'success': True,
+            'message': 'Subscription retrieved successfully',
+            'data': serializer.data
+        })
     
     def create(self, request, *args, **kwargs):
         """Create Subscription Plan"""
@@ -48,11 +84,7 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         }, status=status.HTTP_201_CREATED)
     
     def update(self, request, *args, **kwargs):
-
-
-        """--------Update Subscription Plan----------"""
-
-
+        """Update Subscription Plan"""
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
@@ -66,18 +98,16 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         })
     
     def destroy(self, request, *args, **kwargs):
-
-        """--------Delete Subscription Plan----------"""
-
+        """Delete Subscription Plan"""
         instance = self.get_object()
         plan_name = instance.title
         instance.delete()
         
         return Response({
             'success': True,
-            'message': 'Subscription deleted successfully',
+            'message': f'Subscription "{plan_name}" deleted successfully',
             'data': None
-        })
+        }, status=status.HTTP_200_OK)
 
 
 class PaymentViewSet(viewsets.ModelViewSet):

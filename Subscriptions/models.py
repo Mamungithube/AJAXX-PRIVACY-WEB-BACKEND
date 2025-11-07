@@ -3,6 +3,19 @@ from django.contrib.auth import get_user_model
 import uuid
 
 User = get_user_model()
+
+
+class Feature(models.Model):
+    """Subscription Feature Model"""
+    description = models.TextField()  # unique constraint নেই
+
+    class Meta:
+        db_table = 'features'
+
+    def __str__(self):
+        return self.description
+
+
 class Subscription(models.Model):
     """Subscription Plan Model"""
     BILLING_CYCLE_CHOICES = [
@@ -11,7 +24,8 @@ class Subscription(models.Model):
     ]
     
     title = models.CharField(max_length=255)
-    short_description = models.TextField()
+    Description = models.TextField()
+    features = models.ManyToManyField(Feature, related_name='subscriptions')
     price = models.DecimalField(max_digits=10, decimal_places=2)
     billing_cycle = models.CharField(max_length=20, choices=BILLING_CYCLE_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
