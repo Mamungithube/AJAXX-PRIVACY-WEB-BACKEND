@@ -10,7 +10,7 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             'id',
-            'category',
+            'title',
             'description',
             'old_price',
             'new_price',
@@ -38,4 +38,4 @@ class ProductSerializer(serializers.ModelSerializer):
         super().save(*args, **kwargs)
 
 def __str__(self):
-        return self.category
+        return self.title

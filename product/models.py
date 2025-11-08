@@ -10,7 +10,7 @@ class Product(models.Model):
         
 
 
-    category = models.CharField(max_length=255)
+    title = models.CharField(max_length=255)
     description = models.TextField()
     old_price = models.DecimalField(max_digits=10, decimal_places=2)
     new_price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -22,6 +22,6 @@ class Product(models.Model):
 
 
     def __str__(self):
-        return self.category
+        return self.title
     
 
