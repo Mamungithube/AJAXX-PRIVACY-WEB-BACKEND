@@ -10,7 +10,6 @@ Automated privacy protection platform that scans, tracks & removes your personal
 ![Status](https://img.shields.io/badge/Status-Active-success?style=flat-square)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square&logo=python)
 ![Django](https://img.shields.io/badge/Django-REST%20Framework-green?style=flat-square&logo=django)
-![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
 </div>
 
@@ -32,7 +31,6 @@ Automated privacy protection platform that scans, tracks & removes your personal
 ## 📘 Project Overview
 AJAXX Data Scrubber empowers users to protect their personal data online by automating:
 ✅ Data scans  
-✅ Tracking status  
 ✅ Removal requests  
 
 Designed to help users comply with privacy laws like GDPR / CCPA.
