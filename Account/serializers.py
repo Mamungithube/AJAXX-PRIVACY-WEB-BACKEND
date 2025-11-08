@@ -154,14 +154,15 @@ class ResetPasswordSerializer(serializers.Serializer):
 """ ----------------Profile Serializer------------------- """
 class ProfileSerializer(serializers.ModelSerializer):
     fullname = serializers.SerializerMethodField()
-    
+    email = serializers.SerializerMethodField()
     class Meta:
         model = Profile
-        fields = [ 'fullname', 'profile_picture', 'Country', 'City', 'Province', 'Gender', 'Bio']
+        fields = [ 'fullname','email', 'profile_picture', 'Country', 'City', 'Province', 'Gender', 'Bio']
     
     def get_fullname(self, obj):
         return obj.user.Fullname
-
+    def get_email(self, obj):
+        return obj.user.email
 
 
 """ ----------------Profile Update Serializer------------------- """
