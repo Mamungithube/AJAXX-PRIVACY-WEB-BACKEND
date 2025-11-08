@@ -463,7 +463,7 @@ class UserBlockViewSet(viewsets.GenericViewSet):
         user_to_block.save()
         
         return Response(
-            {"detail": f"User '{user_to_block.username}' has been successfully blocked (is_active=False)."},
+            {"detail": f"User '{user_to_block.username}' Block successfully Done"},
             status=status.HTTP_200_OK
         )
 
@@ -481,6 +481,6 @@ class UserBlockViewSet(viewsets.GenericViewSet):
         user_to_unblock.save()
         
         return Response(
-            {"detail": f"User '{user_to_unblock.username}' has been successfully unblocked (is_active=True)."},
+            {"detail": f"User '{user_to_unblock.username}' UnBlock successfully Done"},
             status=status.HTTP_200_OK
         )
