@@ -12,12 +12,13 @@ class ContactusViewset(viewsets.ModelViewSet):
     queryset = models.ContactUs.objects.all()
     serializer_class = serializers.ContactUsSerializer
 
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
 
-            # ইমেইল পাঠানো
+            
             email = serializer.validated_data.get('email')
             subject = serializer.validated_data.get('Subject')
             message = serializer.validated_data.get('Description')

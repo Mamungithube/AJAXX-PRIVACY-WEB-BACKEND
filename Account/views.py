@@ -36,10 +36,6 @@ User = get_user_model()
 
 
 
-
-
-
-
 class UserAPIView(APIView):
     permission_classes = [IsAdminUser]
 
@@ -159,34 +155,29 @@ class RegisterAPIView(APIView):
 class ResendOTPApiView(APIView):
     def post(self, request, *args, **kwargs):
         email = request.data.get('email')
-        
-        # 1. Validate user existence
+
         user = get_object_or_404(User, email=email)
 
-        # 2. Generate and save the new OTP
         otp_code = generate_otp()
         user.profile.otp = otp_code
         user.profile.save()
 
-        # 3. Render the HTML template
-        # The 'context' dictionary contains data for the template (e.g., the OTP code)
         html_content = render_to_string('send_code.html', {'otp': otp_code, 'user': user})
 
-        # 4. Construct and send the HTML email
         try:
             msg = EmailMessage(
                 subject='Reset Your Password - Your New Code',  # Email Subject
-                body=html_content,  # Use the rendered HTML content
+                body=html_content,  
                 from_email='mdmamun340921@gmail.com', # Use settings.DEFAULT_FROM_EMAIL or a hardcoded email
                 to=[email],  # Recipient list
             )
-            msg.content_subtype = "html"  # Set the email type to HTML
+            msg.content_subtype = "html" 
             msg.send()
 
             return Response({'Message': 'OTP Has Been Resent To Your Email'}, status=status.HTTP_200_OK)
         
         except Exception as e:
-            # Handle potential email sending errors
+            
             return Response({'Error': f'Failed to send email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -217,7 +208,7 @@ from rest_framework.permissions import AllowAny
 
 class LoginAPIView(APIView):
     serializer_class = LoginSerializer
-    permission_classes = [AllowAny]  # ✅ এটা MUST থাকতে হবে
+    permission_classes = [AllowAny] 
 
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
