@@ -27,13 +27,15 @@ from .utils import generate_otp
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated,IsAdminUser
 from django.contrib.auth import get_user_model
+from rest_framework import status
+from django.db.models import Q  # For search
+from rest_framework.decorators import action
 
 from django.core.mail import EmailMessage
 User = get_user_model()
 
-# user view 
-from rest_framework import status
-from django.db.models import Q  # For search
+
+
 
 
 
@@ -436,10 +438,7 @@ class ChangePasswordViewSet(viewsets.GenericViewSet):
 
 """ -------------------User Block view----------------------- """
 
-from rest_framework.decorators import action
 
-
-User = get_user_model()
 
 class UserBlockViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAdminUser] 
@@ -463,7 +462,7 @@ class UserBlockViewSet(viewsets.GenericViewSet):
         user_to_block.save()
         
         return Response(
-            {"detail": f"User '{user_to_block.username}' Block successfully Done"},
+            {"detail": f"Block successfully Done"},
             status=status.HTTP_200_OK
         )
 
@@ -481,6 +480,6 @@ class UserBlockViewSet(viewsets.GenericViewSet):
         user_to_unblock.save()
         
         return Response(
-            {"detail": f"User '{user_to_unblock.username}' UnBlock successfully Done"},
+            {"detail": f"UnBlock successfully Done"},
             status=status.HTTP_200_OK
         )
