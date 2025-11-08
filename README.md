@@ -95,7 +95,6 @@ project-root/
 │ │── apps/
 │ │── core/
 │ │── settings.py
-│── frontend/ (optional if React)
 │── .env.example
 │── requirements.txt
 │── README.md
@@ -105,7 +104,7 @@ project-root/
 ## ⚙️ Setup / Getting Started
 
 ### ✅ Prerequisites
-- Python 3.10 or higher  
+- Python 3.14.0
 - pip & virtualenv  
 - Git  
 
@@ -151,17 +150,6 @@ python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 🔗 URL: http://127.0.0.1:8000/
-
-📡 API Documentation
-📍RESTful endpoints for:
-
-Users (Register/Login)
-
-Scans (Trigger/List/History)
-
-Subscriptions (Stripe checkout)
-
-
 
 
 🤝 Contributing
