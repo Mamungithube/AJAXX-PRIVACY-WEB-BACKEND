@@ -1,8 +1,12 @@
-# Project Name
-A brief description of your project.
+# AJAXX Data Scrubber
+
+**AJAXX Data Scrubber** is a privacy-focused web application that empowers users to take control of their digital footprint by scanning, tracking, and requesting the removal of their personal data from online data brokers. The app uses automated workflows and secure APIs to streamline the process of managing privacy and complying with data regulations.
+
+---
 
 ## Table of Contents
 - [Project Overview](#project-overview)
+- [Purpose](#purpose-of-the-application)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Installation](#installation)
@@ -13,48 +17,60 @@ A brief description of your project.
 - [Contributing](#contributing)
 - [License](#license)
 
+---
+
 ## Project Overview
-Write a short description of the project, purpose, and goals.
+AJAXX Data Scrubber is designed to give users a simple and secure way to manage their personal data online. It automates data scans, tracks scan results, and allows users to request removal of personal information from third-party data brokers.
+
+---
+
+## Purpose of the Application
+The primary purpose of AJAXX Data Scrubber is to provide users with an easy and secure way to protect their personal information online. By automating the process of data scanning and removal, the app helps users regain control over their online presence and comply with digital privacy laws.
+
+---
 
 ## Features
-- Feature 1
-- Feature 2
-- Feature 3
+
+### User-Facing Pages
+- **Login / Signup:** Firebase authentication for secure login and signup.  
+- **Dashboard:** View scan status, results, and a summary of account activity.  
+- **Scan Request:** Trigger data scans through a webhook integration (powered by N8N).  
+- **Scan Results Page:** Displays the status and results of ongoing and completed scans from Airtable.  
+- **Subscription Page:** Allows users to subscribe to Basic, Silver, or Gold plans via Stripe.  
+- **Settings Page:** Update user preferences, manage data retention, or delete the account.  
+- **Compliance History:** Download or request PDF logs of compliance history.  
+- **Support/Contact:** Built-in help form for user inquiries.
+
+### Admin Pages
+- **Admin Dashboard:** View and manage all user accounts and scans, trigger exports, and control app settings.  
+- **User Management:** Ban, reset, or delete user accounts.  
+- **Analytics View:** Monitor scan usage, user activity, and subscription tiers with real-time charts.  
+- **Audit Log Export:** Legal export options for compliance documentation.  
+
+---
 
 ## Tech Stack
-- Backend: Django, Django REST Framework
-- Database: PostgreSQL / MySQL / SQLite
-- Others: Stripe (for payments), JWT (for authentication), etc.
+- **Backend:** Django, Django REST Framework (DRF)  
+- **Authentication:** Firebase Authentication  
+- **Database:** PostgreSQL
+- **Payment Gateway:** Stripe  
+
+---
 
 ## Installation
-Step by step guide to set up the project locally:
+
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/project-name.git
+git clone [(https://github.com/Mamungithube/AJAXX-PRIVACY-WEB-BACKEND/)}
 
-# Move into project directory
-cd project-name
+# Navigate to project folder
+cd ajaxx-data-scrubber
 
 # Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv env
+source venv/bin/activate  # Windows: env\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Django settings module
-SECRET_KEY=DJANGO_SECRET_KEY
 
-# Email settings
-EMAIL=example@gmail.com
-EMAIL_PASSWORD=YOUR_EMAIL_APP_PASSWORD
-
-# Database settings
-DB_NAME=YOUR_DB_NAME
-DB_USER=YOUR_DB_USER_NAME
-DB_PASSWORD=YOUR_DB_PASSWORD
-
-# Stripe payment settings
-stripe_secret_key=YOUR_STRIPE_SECRET_KEY
-stripe_publishable_key=YOUR_STRIPE_PUBLISHABLE_KEY
-stripe_webhook_secret=YOUR_STRIPE_WEBHOOK_SECRET
