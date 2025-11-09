@@ -1,76 +1,159 @@
-# AJAXX Data Scrubber
+<div align="center">
 
-**AJAXX Data Scrubber** is a privacy-focused web application that empowers users to take control of their digital footprint by scanning, tracking, and requesting the removal of their personal data from online data brokers. The app uses automated workflows and secure APIs to streamline the process of managing privacy and complying with data regulations.
+# 🛡️ AJAXX Data Scrubber
+### Take Control of Your Digital Footprint
 
----
-
-## Table of Contents
-- [Project Overview](#project-overview)
-- [Purpose](#purpose-of-the-application)
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Environment Variables](#environment-variables)
-- [Running the Project](#running-the-project)
-- [API Documentation](#api-documentation)
-- [Contributing](#contributing)
-- [License](#license)
+Automated privacy protection platform that scans, tracks & removes your personal data from online data broker sites — powered by secure APIs, automation workflows and modern web technologies.
 
 ---
 
-## Project Overview
-AJAXX Data Scrubber is designed to give users a simple and secure way to manage their personal data online. It automates data scans, tracks scan results, and allows users to request removal of personal information from third-party data brokers.
+![Status](https://img.shields.io/badge/Status-Active-success?style=flat-square)
+![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square&logo=python)
+![Django](https://img.shields.io/badge/Django-REST%20Framework-green?style=flat-square&logo=django)
+
+</div>
 
 ---
 
-## Purpose of the Application
-The primary purpose of AJAXX Data Scrubber is to provide users with an easy and secure way to protect their personal information online. By automating the process of data scanning and removal, the app helps users regain control over their online presence and comply with digital privacy laws.
+## 📌 Table of Contents
+- [Overview](#-project-overview)
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [System Architecture](#-system-architecture)
+- [Screenshots](#-screenshots)
+- [Folder Structure](#-folder-structure)
+- [Setup Guide](#-setup--getting-started)
+- [Environment Variables](#-environment-variables)
+- [Running Locally](#-running-the-project)
 
 ---
 
-## Features
+## 📘 Project Overview
+AJAXX Data Scrubber empowers users to protect their personal data online by automating:
+✅ Data scans  
+✅ Removal requests  
 
-### User-Facing Pages
-- **Login / Signup:** Firebase authentication for secure login and signup.  
-- **Dashboard:** View scan status, results, and a summary of account activity.  
-- **Scan Request:** Trigger data scans through a webhook integration (powered by N8N).  
-- **Scan Results Page:** Displays the status and results of ongoing and completed scans from Airtable.  
-- **Subscription Page:** Allows users to subscribe to Basic, Silver, or Gold plans via Stripe.  
-- **Settings Page:** Update user preferences, manage data retention, or delete the account.  
-- **Compliance History:** Download or request PDF logs of compliance history.  
-- **Support/Contact:** Built-in help form for user inquiries.
-
-### Admin Pages
-- **Admin Dashboard:** View and manage all user accounts and scans, trigger exports, and control app settings.  
-- **User Management:** Ban, reset, or delete user accounts.  
-- **Analytics View:** Monitor scan usage, user activity, and subscription tiers with real-time charts.  
-- **Audit Log Export:** Legal export options for compliance documentation.  
+Designed to help users comply with privacy laws like GDPR / CCPA.
 
 ---
 
-## Tech Stack
-- **Backend:** Django, Django REST Framework (DRF)  
-- **Authentication:** Firebase Authentication  
-- **Database:** PostgreSQL
-- **Payment Gateway:** Stripe  
+## 🎯 Purpose of the Application
+✔ Allow users to regain control over their exposed personal data  
+✔ Automate scan + removal workflows  
+✔ Provide compliance history + audit logs  
+✔ Securely manage data with modern authentication & encryption
 
 ---
 
-## Installation
+## 🚀 Features
+
+### 🧑‍💻 User Features
+| Feature | Description |
+|--------|-------------|
+| Login / Signup | Firebase Auth for secure access |
+| Dashboard | View scans, results & progress |
+| Scan Request | N8N automated workflow trigger |
+| Scan Results | Fetch scan status + logs from Airtable |
+| Subscription | Stripe (Basic / Silver / Gold) |
+| Settings | Control retention, delete account |
+| Compliance History | PDF export of logs for legal compliance |
+| Help & Support | Contact form |
+
+### 🛠 Admin Features
+| Feature | Description |
+|--------|-------------|
+| Admin Dashboard | Manage users + scans |
+| User Management | Ban, reset, delete accounts |
+| Analytics | Real-time charts usage/subscription |
+| Audit Logs Export | Legal documentation |
+
+---
+
+## 🧰 Tech Stack
+
+| Layer | Technology |
+|------|------------|
+| Backend | Django, DRF |
+| Frontend | React.js / Django Templates |
+| Authentication | Firebase Auth |
+| Database | PostgreSQL / MySQL / SQLite |
+| Payments | Stripe |
+| Automation Engine | N8N |
+| Storage & Data Fetch | Airtable API |
+| Logging / Compliance | Custom Export Services |
+
+---
+
+## 🏗 System Architecture
+
+--
+## 🗂 Folder Structure
+project-root/
+│── backend/
+│ │── apps/
+│ │── core/
+│ │── settings.py
+│── .env.example
+│── requirements.txt
+│── README.md
+
+---
+
+## ⚙️ Setup / Getting Started
+
+### ✅ Prerequisites
+- Python 3.14.0
+- pip & virtualenv  
+- Git  
+
+---
+
+### 🔧 Install Guide
 
 ```bash
-# Clone the repository
-git clone [(https://github.com/Mamungithube/AJAXX-PRIVACY-WEB-BACKEND/)}
-
-# Navigate to project folder
+# Clone repo
+git clone https://github.com/yourusername/ajaxx-data-scrubber.git
 cd ajaxx-data-scrubber
 
-# Create virtual environment
-python -m venv env
-source venv/bin/activate  # Windows: env\Scripts\activate
+# Create venv
+python -m venv venv
+source venv/bin/activate     # Windows: venv\Scripts\activate
 
-# Install dependencies
+# Install packages
 pip install -r requirements.txt
+🔐 Environment Variables
+Rename .env.example ➝ .env and fill in:
+
+
+# Django
+SECRET_KEY=YOUR_DJANGO_SECRET_KEY
+
+# Email
+EMAIL=example@gmail.com
+EMAIL_PASSWORD=YOUR_EMAIL_APP_PASSWORD
+
+# Database
+DB_NAME=YOUR_DB_NAME
+DB_USER=YOUR_DB_USER
+DB_PASSWORD=YOUR_DB_PASSWORD
+
+# Stripe
+stripe_secret_key=YOUR_STRIPE_SECRET_KEY
+stripe_publishable_key=YOUR_STRIPE_PUBLISHABLE_KEY
+stripe_webhook_secret=YOUR_STRIPE_WEBHOOK_SECRET
+▶ Running the Project
+
+python manage.py makemigrations
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
+🔗 URL: http://127.0.0.1:8000/
+
+
+🤝 Contributing
+
+git checkout -b feature-name
+git commit -m "Added new feature"
+git push origin feature-name
 
 
