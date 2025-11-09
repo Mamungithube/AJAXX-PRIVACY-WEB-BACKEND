@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Failed</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .shake-animation {
+            animation: shake 0.5s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .pulse-slow {
+            animation: pulse-slow 3s infinite;
+        }
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-red-50 to-orange-50 min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-md w-full">
+        <div class="bg-white rounded-2xl shadow-xl p-8 text-center shake-animation">
+            <!-- Failed Icon -->
+            <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6 pulse-slow">
+                <i class="fas fa-times-circle text-red-500 text-4xl"></i>
+            </div>
+            
+            <!-- Failed Message -->
+            <h1 class="text-3xl font-bold text-gray-800 mb-4">Payment Failed ❌</h1>
+            <p class="text-gray-600 mb-2">We couldn't process your payment</p>
+            <p class="text-red-600 font-semibold mb-6" id="failure-reason">Please try again</p>
+            
+            <!-- Error Details -->
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-left">
+                <div class="flex items-start">
+                    <i class="fas fa-exclamation-circle text-red-500 mt-1 mr-3"></i>
+                    <div>
+                        <h3 class="font-semibold text-red-800 mb-2">What went wrong?</h3>
+                        <ul class="text-red-700 text-sm space-y-1">
+                            <li>• Insufficient funds in your account</li>
+                            <li>• Card declined by your bank</li>
+                            <li>• Network connectivity issues</li>
+                            <li>• Invalid card details</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Retry Options -->
+            <div class="space-y-3 mb-6">
+                <button onclick="retryPayment()" class="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition duration-300 transform hover:scale-105">
+                    <i class="fas fa-redo-alt mr-2"></i>Try Again
+                </button>
+                <button onclick="tryDifferentCard()" class="w-full border border-red-600 text-red-600 py-3 rounded-lg font-semibold hover:bg-red-50 transition duration-300">
+                    <i class="fas fa-credit-card mr-2"></i>Use Different Card
+                </button>
+            </div>
+            
+            <!-- Support Section -->
+            <div class="border-t pt-4">
+                <p class="text-gray-600 mb-3">Need help with your payment?</p>
+                <div class="flex justify-center space-x-4">
+                    <button onclick="contactSupport()" class="flex items-center text-blue-600 hover:text-blue-800 transition duration-300">
+                        <i class="fas fa-headset mr-2"></i>Contact Support
+                    </button>
+                    <button onclick="viewHelp()" class="flex items-center text-gray-600 hover:text-gray-800 transition duration-300">
+                        <i class="fas fa-question-circle mr-2"></i>Help Center
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Security Badge -->
+        <div class="text-center mt-6">
+            <div class="inline-flex items-center space-x-2 text-gray-500 text-sm">
+                <i class="fas fa-lock"></i>
+                <span>Secure Payment • 256-bit SSL Encryption</span>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

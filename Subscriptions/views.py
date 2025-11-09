@@ -11,7 +11,21 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import stripe
 import json
+from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpResponse, JsonResponse
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+import stripe
+from django.conf import settings
+from django.utils import timezone
+from dateutil.relativedelta import relativedelta
+import json
+import logging
 
+from .models import Subscription, Payment, UserSubscription
+from .utils import send_payment_email
+
+logger = logging.getLogger(__name__)
 from stripe import StripeError  # Alternative import
 
 from .models import Subscription, Payment, UserSubscription
@@ -27,6 +41,15 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework import status
+from django.shortcuts import render
+
+def payment_success_page(request):
+    """Render payment success page"""
+    return render(request, 'payments/payment-success.html')
+
+def payment_failed_page(request):
+    """Render payment failed page"""
+    return render(request, 'payments/payment-failed.html')
 
 
 class SubscriptionViewSet(viewsets.ModelViewSet):
@@ -161,11 +184,11 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     'quantity': 1,
                 }],
                 mode='payment',
-                success_url=request.build_absolute_uri('/payment-success/') + '?session_id={CHECKOUT_SESSION_ID}',
-                cancel_url=request.build_absolute_uri('/payment-cancel/'),
+                success_url=request.build_absolute_uri('/payment/success/') + '?session_id={CHECKOUT_SESSION_ID}',
+                cancel_url=request.build_absolute_uri('/payment/failed/'),
                 client_reference_id=str(request.user.id),
                 metadata={
-                    'subscription_id': subscription_id,
+                    'subscription_id': str(subscription_id),
                     'user_id': request.user.id,
                 }
             )
@@ -406,86 +429,204 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
 @csrf_exempt
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def stripe_webhook(request):
-
     """----------Handle Stripe Webhooks-----------"""
-
+    if request.content_type == 'application/json':
+        data = json.loads(request.body)
+        event_type = data.get('type')
+        session = data.get('data', {}).get('object', {})
+        
+        if event_type == 'checkout.session.completed':
+            return handle_checkout_session_completed(session)
+        
+    print("🔔 Webhook received - Starting processing...")
     
     payload = request.body
     sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
     webhook_secret = settings.STRIPE_WEBHOOK_SECRET
-    
+
+    if not webhook_secret:
+        logger.error("❌ STRIPE_WEBHOOK_SECRET is not set in settings")
+        return JsonResponse({'error': 'Webhook secret not configured'}, status=500)
+
     try:
         event = stripe.Webhook.construct_event(
             payload, sig_header, webhook_secret
         )
-    except ValueError:
-        return Response({'error': 'Invalid payload'}, status=400)
-    except stripe.error.SignatureVerificationError:
-        return Response({'error': 'Invalid signature'}, status=400)
-    
+        print(f"✅ Event constructed: {event['type']}")
+    except ValueError as e:
+        logger.error(f"❌ Invalid payload: {e}")
+        return JsonResponse({'error': 'Invalid payload'}, status=400)
+    except stripe.error.SignatureVerificationError as e:
+        logger.error(f"❌ Invalid signature: {e}")
+        return JsonResponse({'error': 'Invalid signature'}, status=400)
+    except Exception as e:
+        logger.error(f"❌ Webhook construction error: {e}")
+        return JsonResponse({'error': 'Webhook processing failed'}, status=400)
+
     # Handle checkout session completed
     if event['type'] == 'checkout.session.completed':
-        session = event['data']['object']
-        
-        if session.payment_status == 'paid':
-            try:
-                subscription_id = session.metadata.get('subscription_id')
-                user_id = session.metadata.get('user_id')
-                
-                subscription = Subscription.objects.get(id=subscription_id)
-                
-                # Calculate validity
-                now = timezone.now()
-                if subscription.billing_cycle == 'monthly':
-                    valid_till = now + relativedelta(months=1)
-                else:
-                    valid_till = now + relativedelta(years=1)
-                
-                # Save payment
-                Payment.objects.create(
-                    user_id=user_id,
-                    subscription=subscription,
-                    amount=session.amount_total / 100,
-                    transaction_id=session.payment_intent,
-                    invoice_id=session.invoice or Payment.generate_invoice_id(),
-                    status='succeeded',
-                    payment_date=now
-                )
-                
-                # Update user subscription
-                UserSubscription.objects.update_or_create(
-                    user_id=user_id,
-                    defaults={
-                        'plan': subscription,
-                        'starts_at': now,
-                        'expires_at': valid_till,
-                        'status': 'active'
-                    }
-                )
-            except Exception as e:
-                print(f"Webhook error: {e}")
+        print("🛒 Processing checkout.session.completed event")
+        return handle_checkout_session_completed(event['data']['object'])
     
-    # Handle payment intent events (for backward compatibility)
+    # Handle payment intent events
     elif event['type'] == 'payment_intent.succeeded':
-        payment_intent = event['data']['object']
-        
-        try:
-            payment = Payment.objects.get(transaction_id=payment_intent['id'])
-            payment.status = 'succeeded'
-            payment.save()
-        except Payment.DoesNotExist:
-            pass
+        print("💳 Processing payment_intent.succeeded event")
+        return handle_payment_intent_succeeded(event['data']['object'])
     
     elif event['type'] == 'payment_intent.payment_failed':
-        payment_intent = event['data']['object']
-        
-        try:
-            payment = Payment.objects.get(transaction_id=payment_intent['id'])
-            payment.status = 'failed'
-            payment.save()
-        except Payment.DoesNotExist:
-            pass
+        print("❌ Processing payment_intent.payment_failed event")
+        return handle_payment_intent_failed(event['data']['object'])
     
-    return Response({'received': True})
+    else:
+        print(f"Unhandled event type: {event['type']}")
+    
+    return JsonResponse({'received': True})
+
+
+def handle_checkout_session_completed(session):
+    """Handle completed checkout session"""
+    try:
+        print(f"🔍 Session details: {session}")
+        
+        # Check if payment is successful
+        if session.payment_status != 'paid':
+            print(f"⚠️ Payment not completed. Status: {session.payment_status}")
+            return JsonResponse({'received': True})
+
+        # Extract metadata
+        subscription_id = session.metadata.get('subscription_id')
+        user_id = session.metadata.get('user_id')
+        
+        print(f"📋 Metadata - subscription_id: {subscription_id}, user_id: {user_id}")
+        
+        if not subscription_id or not user_id:
+            print("❌ Missing required metadata in session")
+            return JsonResponse({'error': 'Missing metadata'}, status=400)
+
+        # Check if payment already exists to avoid duplicates
+        existing_payment = Payment.objects.filter(transaction_id=session.payment_intent).first()
+        if existing_payment:
+            print(f"✅ Payment already exists in database: {existing_payment.id}")
+            return JsonResponse({'received': True})
+
+        # Get subscription
+        try:
+            subscription = Subscription.objects.get(id=subscription_id)
+            print(f"📦 Subscription found: {subscription.title}")
+        except Subscription.DoesNotExist:
+            print(f"❌ Subscription not found: {subscription_id}")
+            return JsonResponse({'error': 'Subscription not found'}, status=404)
+
+        # Calculate validity dates
+        now = timezone.now()
+        if subscription.billing_cycle == 'monthly':
+            valid_till = now + relativedelta(months=1)
+        else:  # yearly
+            valid_till = now + relativedelta(years=1)
+        
+        print(f"📅 Validity calculated: {valid_till}")
+
+        # Create payment record
+        try:
+            payment = Payment.objects.create(
+                user_id=user_id,
+                subscription=subscription,
+                amount=session.amount_total / 100,  # Convert from cents
+                transaction_id=session.payment_intent,
+                invoice_id=session.invoice or Payment.generate_invoice_id(),
+                status='succeeded',
+                payment_date=now
+            )
+            print(f"💰 Payment created successfully: {payment.id}")
+        except Exception as e:
+            print(f"❌ Payment creation failed: {e}")
+            return JsonResponse({'error': 'Payment creation failed'}, status=500)
+
+        # Update or create user subscription
+        try:
+            user_subscription, created = UserSubscription.objects.update_or_create(
+                user_id=user_id,
+                defaults={
+                    'plan': subscription,
+                    'starts_at': now,
+                    'expires_at': valid_till,
+                    'status': 'active'
+                }
+            )
+            action = "created" if created else "updated"
+            print(f"👤 User subscription {action}: {user_subscription.id}")
+        except Exception as e:
+            print(f"❌ User subscription update failed: {e}")
+            # Don't return error here, just log it
+
+        # Send email confirmation
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            user = User.objects.get(id=user_id)
+            
+            send_payment_email(
+                email=user.email,
+                amount=payment.amount,
+                transaction_id=payment.transaction_id,
+                invoice_id=payment.invoice_id,
+                payment_status='succeeded'
+            )
+            print(f"📧 Email sent to: {user.email}")
+        except Exception as e:
+            print(f"⚠️ Email sending failed: {e}")
+            # Continue even if email fails
+
+        print("✅ Checkout session processing completed successfully")
+        return JsonResponse({'received': True})
+
+    except Exception as e:
+        logger.error(f"❌ Error in handle_checkout_session_completed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': 'Processing failed'}, status=500)
+
+
+def handle_payment_intent_succeeded(payment_intent):
+    """Handle successful payment intent"""
+    try:
+        print(f"🔍 Payment Intent: {payment_intent['id']}")
+        
+        # Check if payment already exists
+        existing_payment = Payment.objects.filter(transaction_id=payment_intent['id']).first()
+        if existing_payment:
+            print(f"🔄 Updating existing payment: {existing_payment.id}")
+            existing_payment.status = 'succeeded'
+            existing_payment.save()
+            print(f"✅ Payment updated: {existing_payment.id}")
+        else:
+            print(f" No existing payment found for: {payment_intent['id']}")
+            # You might want to create a payment record here if needed
+            # But typically checkout.session.completed should handle this
+        
+        return JsonResponse({'received': True})
+    
+    except Exception as e:
+        logger.error(f"❌ Error in handle_payment_intent_succeeded: {str(e)}")
+        return JsonResponse({'error': 'Payment intent processing failed'}, status=500)
+
+
+def handle_payment_intent_failed(payment_intent):
+    """Handle failed payment intent"""
+    try:
+        print(f"🔍 Failed Payment Intent: {payment_intent['id']}")
+        
+        # Update existing payment if found
+        existing_payment = Payment.objects.filter(transaction_id=payment_intent['id']).first()
+        if existing_payment:
+            existing_payment.status = 'failed'
+            existing_payment.save()
+            print(f"❌ Payment marked as failed: {existing_payment.id}")
+        
+        return JsonResponse({'received': True})
+    
+    except Exception as e:
+        logger.error(f"❌ Error in handle_payment_intent_failed: {str(e)}")
+        return JsonResponse({'error': 'Payment intent processing failed'}, status=500)

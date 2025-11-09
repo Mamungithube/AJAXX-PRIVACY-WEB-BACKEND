@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PDF Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        .success-animation {
+            animation: bounce 0.6s ease-in-out;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            20%,
+            60%,
+            100% {
+                transform: translateY(0);
+            }
+
+            40% {
+                transform: translateY(-10px);
+            }
+
+            80% {
+                transform: translateY(-5px);
+            }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Invoice Template Styles */
+        .invoice-template {
+            background: white;
+            padding: 30px;
+            max-width: 800px;
+            margin: 20px auto;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            font-family: Arial, sans-serif;
+        }
+
+        .invoice-header {
+            text-align: center;
+            border-bottom: 2px solid #10B981;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .invoice-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        .invoice-table th,
+        .invoice-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        .invoice-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+
+        .total-section {
+            text-align: right;
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-md w-full">
+        <div class="bg-white rounded-2xl shadow-xl p-8 text-center success-animation">
+            <!-- Success Icon -->
+            <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 pulse">
+                <i class="fas fa-check-circle text-green-500 text-4xl"></i>
+            </div>
+
+            <!-- Success Message -->
+            <h1 class="text-3xl font-bold text-gray-800 mb-4">Payment Successful! 🎉</h1>
+            <p class="text-gray-600 mb-2">Thank you for your subscription</p>
+            <p class="text-green-600 font-semibold mb-6">Your payment has been processed successfully</p>
+
+            <!-- Transaction Details -->
+            <div class="bg-gray-50 rounded-lg p-4 mb-6 text-left">
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-600">Transaction ID:</span>
+                    <span class="font-mono text-sm" id="transaction-id">Loading...</span>
+                </div>
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-600">Invoice ID:</span>
+                    <span class="font-mono text-sm" id="invoice-id">Loading...</span>
+                </div>
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-600">Amount:</span>
+                    <span class="font-semibold" id="amount">Loading...</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Status:</span>
+                    <span class="text-green-600 font-semibold">Completed</span>
+                </div>
+            </div>
+
+            <!-- Loading/Status -->
+            <div id="loading" class="mb-4">
+                <div class="flex items-center justify-center space-x-2">
+                    <div class="w-4 h-4 bg-green-500 rounded-full animate-bounce"></div>
+                    <div class="w-4 h-4 bg-green-500 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                    <div class="w-4 h-4 bg-green-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                </div>
+                <p class="text-gray-500 mt-2">Verifying your payment...</p>
+            </div>
+
+            <!-- Success Actions -->
+            <div id="success-actions" class="hidden space-y-3">
+                <button onclick="goToDashboard()"
+                    class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition duration-300 transform hover:scale-105">
+                    <i class="fas fa-tachometer-alt mr-2"></i>Go to Dashboard
+                </button>
+                <button onclick="downloadInvoicePDF()" id="download-pdf-btn"
+                    class="w-full border border-green-600 text-green-600 py-3 rounded-lg font-semibold hover:bg-green-50 transition duration-300">
+                    <i class="fas fa-download mr-2"></i>Download Invoice PDF
+                </button>
+                <button onclick="printInvoice()"
+                    class="w-full border border-blue-600 text-blue-600 py-3 rounded-lg font-semibold hover:bg-blue-50 transition duration-300">
+                    <i class="fas fa-print mr-2"></i>Print Invoice
+                </button>
+            </div>
+
+            <!-- Error Message -->
+            <div id="error-message" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-red-500 mr-3"></i>
+                    <div class="text-left">
+                        <p class="text-red-800 font-semibold" id="error-text"></p>
+                        <p class="text-red-600 text-sm mt-1">Please contact support if this continues</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden Invoice Template for PDF -->
+        <div id="invoice-template" class="hidden invoice-template">
+            <div class="invoice-header">
+                <h1 class="text-3xl font-bold text-gray-800">INVOICE</h1>
+                <p class="text-gray-600 mt-2" id="invoice-company">Your Company Name</p>
+            </div>
+
+            <div class="invoice-details">
+                <div>
+                    <h3 class="font-bold text-lg mb-2">Bill To:</h3>
+                    <p id="invoice-customer">Customer</p>
+                    <p id="invoice-email">Email</p>
+                    <p id="invoice-date">Date</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg mb-2">Invoice Details:</h3>
+                    <p><strong>Invoice ID:</strong> <span id="pdf-invoice-id"></span></p>
+                    <p><strong>Transaction ID:</strong> <span id="pdf-transaction-id"></span></p>
+                    <p><strong>Issue Date:</strong> <span id="pdf-issue-date"></span></p>
+                </div>
+            </div>
+
+            <table class="invoice-table">
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td id="pdf-description">Subscription Plan</td>
+                        <td>1</td>
+                        <td id="pdf-unit-price">$0.00</td>
+                        <td id="pdf-total-amount">$0.00</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="total-section">
+                <p>Subtotal: <span id="pdf-subtotal">$0.00</span></p>
+                <p>Tax (0%): <span id="pdf-tax">$0.00</span></p>
+                <p class="text-2xl text-green-600">Total: <span id="pdf-grand-total">$0.00</span></p>
+            </div>
+
+            <div class="mt-8 pt-4 border-t border-gray-300">
+                <p class="text-center text-gray-600">Thank you for your business!</p>
+                <p class="text-center text-gray-500 text-sm mt-2">
+                    If you have any questions, contact us at support@yourcompany.com
+                </p>
+            </div>
+        </div>
+
+        <!-- Confetti Effect -->
+        <div id="confetti" class="fixed inset-0 pointer-events-none z-50 hidden"></div>
+    </div>
+
+    <script>
+        // Initialize jsPDF
+        const { jsPDF } = window.jspdf;
+
+        // Payment data storage
+        let paymentData = null;
+
+        // Get session ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('session_id');
+
+        // Verify payment
+        async function verifyPayment() {
+            if (!sessionId) {
+                showError('No session ID found');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/payment/payments/verify-payment/?session_id=${sessionId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    paymentData = result.data;
+                    showSuccess(paymentData);
+                } else {
+                    showError(result.message || 'Payment verification failed');
+                }
+            } catch (error) {
+                showError('Network error. Please check your connection.');
+                console.error('Verification error:', error);
+            }
+        }
+
+        function showSuccess(pData) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('success-actions').classList.remove('hidden');
+
+            // Update transaction details
+            if (pData) {
+                console.log('Payment Data:', pData);
+                document.getElementById('transaction-id').textContent =
+                    pData.transaction_id ? pData.transaction_id.substring(0, 12) + '...' : 'N/A';
+                document.getElementById('invoice-id').textContent =
+                    pData.invoice_id || 'N/A';
+                document.getElementById('amount').textContent =
+                    pData.amount ? `$${pData.amount}` : 'N/A';
+            }
+
+            // Show confetti
+            showConfetti();
+
+            // Auto redirect after 8 seconds (more time for PDF download)
+            setTimeout(() => {
+                goToDashboard();
+            }, 8000);
+        }
+
+        function showError(message) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error-message').classList.remove('hidden');
+            document.getElementById('error-text').textContent = message;
+        }
+
+        // PDF Download Function
+        async function downloadInvoicePDF() {
+            if (!paymentData) {
+                alert('Payment data not available yet. Please wait.');
+                return;
+            }
+
+            const downloadBtn = document.getElementById('download-pdf-btn');
+            const originalText = downloadBtn.innerHTML;
+            
+            try {
+                // Show loading state
+                downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Generating PDF...';
+                downloadBtn.disabled = true;
+
+                // Update invoice template with actual data
+                updateInvoiceTemplate();
+
+                // Create PDF
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const invoiceElement = document.getElementById('invoice-template');
+
+                // Use html2canvas to capture the invoice
+                const canvas = await html2canvas(invoiceElement, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false
+                });
+
+                const imgData = canvas.toDataURL('image/png');
+                const imgWidth = 210; // A4 width in mm
+                const pageHeight = 295; // A4 height in mm
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                // Add new pages if needed
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                // Download the PDF
+                const fileName = `invoice-${paymentData.invoice_id || paymentData.transaction_id || 'receipt'}.pdf`;
+                pdf.save(fileName);
+
+                // Show success message
+                showToast('PDF downloaded successfully!', 'success');
+
+            } catch (error) {
+                console.error('PDF generation error:', error);
+                showToast('Failed to generate PDF. Please try again.', 'error');
+            } finally {
+                // Restore button state
+                downloadBtn.innerHTML = originalText;
+                downloadBtn.disabled = false;
+            }
+        }
+
+        // Update invoice template with actual data
+        function updateInvoiceTemplate() {
+            if (!paymentData) return;
+
+            const now = new Date();
+            const formattedDate = now.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            // Update invoice content
+            document.getElementById('pdf-invoice-id').textContent = paymentData.invoice_id || 'N/A';
+            document.getElementById('pdf-transaction-id').textContent = paymentData.transaction_id || 'N/A';
+            document.getElementById('pdf-issue-date').textContent = formattedDate;
+            document.getElementById('pdf-description').textContent = 
+                paymentData.subscription?.title || 'Subscription Plan';
+            document.getElementById('pdf-unit-price').textContent = `$${paymentData.amount || '0.00'}`;
+            document.getElementById('pdf-total-amount').textContent = `$${paymentData.amount || '0.00'}`;
+            document.getElementById('pdf-subtotal').textContent = `$${paymentData.amount || '0.00'}`;
+            document.getElementById('pdf-tax').textContent = '$0.00';
+            document.getElementById('pdf-grand-total').textContent = `$${paymentData.amount || '0.00'}`;
+
+            // Customer info (you can customize this based on your user data)
+            document.getElementById('invoice-customer').textContent = 'Valued Customer';
+            document.getElementById('invoice-email').textContent = 'customer@example.com';
+            document.getElementById('invoice-date').textContent = formattedDate;
+        }
+
+        // Print Invoice
+        function printInvoice() {
+            if (!paymentData) {
+                alert('Payment data not available yet. Please wait.');
+                return;
+            }
+
+            updateInvoiceTemplate();
+            const invoiceElement = document.getElementById('invoice-template');
+            const originalDisplay = invoiceElement.style.display;
+            
+            // Show the invoice template
+            invoiceElement.classList.remove('hidden');
+            
+            // Print
+            window.print();
+            
+            // Hide again
+            invoiceElement.classList.add('hidden');
+        }
+
+        // Toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white ${
+                type === 'success' ? 'bg-green-500' : 
+                type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+            } z-50`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        function showConfetti() {
+            const confetti = document.getElementById('confetti');
+            confetti.classList.remove('hidden');
+
+            // Simple confetti effect
+            for (let i = 0; i < 100; i++) {
+                setTimeout(() => {
+                    const confettiPiece = document.createElement('div');
+                    confettiPiece.className = 'absolute w-2 h-2 rounded-full';
+                    confettiPiece.style.left = Math.random() * 100 + 'vw';
+                    confettiPiece.style.top = '-10px';
+                    confettiPiece.style.backgroundColor = getRandomColor();
+                    confettiPiece.style.animation = `fall ${Math.random() * 3 + 2}s linear forwards`;
+                    confetti.appendChild(confettiPiece);
+
+                    // Remove after animation
+                    setTimeout(() => confettiPiece.remove(), 5000);
+                }, i * 30);
+            }
+
+            // Add CSS for falling animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes fall {
+                    to {
+                        transform: translateY(100vh) rotate(360deg);
+                        opacity: 0;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        function getRandomColor() {
+            const colors = ['#10B981', '#EF4444', '#3B82F6', '#F59E0B', '#8B5CF6'];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        function goToDashboard() {
+            window.location.href = '/dashboard/';
+        }
+
+        // Start verification when page loads
+        document.addEventListener('DOMContentLoaded', verifyPayment);
+
+        // Add print styles
+        const printStyle = document.createElement('style');
+        printStyle.textContent = `
+            @media print {
+                body * {
+                    visibility: hidden;
+                }
+                #invoice-template, #invoice-template * {
+                    visibility: visible;
+                }
+                #invoice-template {
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                    box-shadow: none;
+                }
+            }
+        `;
+        document.head.appendChild(printStyle);
+    </script>
+</body>
+
+</html>

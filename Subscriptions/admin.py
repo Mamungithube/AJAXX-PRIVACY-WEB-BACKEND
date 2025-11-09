@@ -16,3 +16,5 @@ class PaymentAdmin(admin.ModelAdmin):
 class UserSubscriptionAdmin(admin.ModelAdmin):
     list_display = ['user', 'plan', 'status', 'expires_at']
     list_filter = ['status']
+
+    
