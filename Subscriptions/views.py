@@ -12,6 +12,8 @@ from dateutil.relativedelta import relativedelta
 import stripe
 import json
 
+from stripe import StripeError  # Alternative import
+
 from .models import Subscription, Payment, UserSubscription
 from .serializers import (
     SubscriptionSerializer, PaymentSerializer, 
@@ -128,13 +130,13 @@ class PaymentViewSet(viewsets.ModelViewSet):
     def create_checkout_session(self, request):
         """Create Stripe Checkout Session"""
         subscription_id = request.data.get('subscription_id')
-        
+
         if not subscription_id:
             return Response({
                 'success': False,
                 'message': 'Subscription ID is required'
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
         try:
             subscription = Subscription.objects.get(id=subscription_id)
         except Subscription.DoesNotExist:
@@ -142,7 +144,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 'success': False,
                 'message': 'Subscription plan not found'
             }, status=status.HTTP_404_NOT_FOUND)
-        
+
         try:
             # Create Stripe Checkout Session
             checkout_session = stripe.checkout.Session.create(
@@ -153,7 +155,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                         'unit_amount': int(subscription.price * 100),  # Convert to cents
                         'product_data': {
                             'name': subscription.title,
-                            'description': subscription.short_description,
+                            'description': subscription.Description,
                         },
                     },
                     'quantity': 1,
@@ -167,7 +169,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     'user_id': request.user.id,
                 }
             )
-            
+
             return Response({
                 'success': True,
                 'message': 'Checkout session created',
@@ -176,8 +178,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     'checkout_url': checkout_session.url
                 }
             })
-        
-        except stripe.error.StripeError as e:
+
+        except stripe.StripeError as e:  # FIXED: removed .error
             return Response({
                 'success': False,
                 'message': 'Failed to create checkout session',
