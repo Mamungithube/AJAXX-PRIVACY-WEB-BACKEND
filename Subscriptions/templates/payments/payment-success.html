@@ -155,10 +155,6 @@
                     class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition duration-300 transform hover:scale-105">
                     <i class="fas fa-tachometer-alt mr-2"></i>Go to Dashboard
                 </button>
-                <button onclick="downloadInvoicePDF()" id="download-pdf-btn"
-                    class="w-full border border-green-600 text-green-600 py-3 rounded-lg font-semibold hover:bg-green-50 transition duration-300">
-                    <i class="fas fa-download mr-2"></i>Download Invoice PDF
-                </button>
                 <button onclick="printInvoice()"
                     class="w-full border border-blue-600 text-blue-600 py-3 rounded-lg font-semibold hover:bg-blue-50 transition duration-300">
                     <i class="fas fa-print mr-2"></i>Print Invoice
@@ -254,9 +250,19 @@
                 return;
             }
 
+            console.log('🔄 Verifying payment with session:', sessionId);
+
             try {
-                const response = await fetch(`/payment/payments/verify-payment/?session_id=${sessionId}`);
+                // ✅ Use the new public endpoint
+                const response = await fetch(`/payment/verify-payment/?session_id=${sessionId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
                 const result = await response.json();
+                console.log('✅ Verification response:', result);
 
                 if (result.success) {
                     paymentData = result.data;
@@ -265,8 +271,8 @@
                     showError(result.message || 'Payment verification failed');
                 }
             } catch (error) {
+                console.error('❌ Verification error:', error);
                 showError('Network error. Please check your connection.');
-                console.error('Verification error:', error);
             }
         }
 
@@ -274,24 +280,31 @@
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('success-actions').classList.remove('hidden');
 
-            // Update transaction details
+            // Update transaction details with better formatting
             if (pData) {
                 console.log('Payment Data:', pData);
-                document.getElementById('transaction-id').textContent =
-                    pData.transaction_id ? pData.transaction_id.substring(0, 12) + '...' : 'N/A';
-                document.getElementById('invoice-id').textContent =
-                    pData.invoice_id || 'N/A';
-                document.getElementById('amount').textContent =
-                    pData.amount ? `$${pData.amount}` : 'N/A';
+
+                // Format transaction ID (show first and last 8 characters)
+                const transId = pData.transaction_id || 'N/A';
+                const formattedTransId = transId.length > 16 ?
+                    `${transId.substring(0, 8)}...${transId.substring(transId.length - 8)}` : transId;
+
+                document.getElementById('transaction-id').textContent = formattedTransId;
+                document.getElementById('invoice-id').textContent = pData.invoice_id || 'N/A';
+                document.getElementById('amount').textContent = pData.amount ? `$${parseFloat(pData.amount).toFixed(2)}` : 'N/A';
+
+                // Update PDF template data immediately
+                updateInvoiceTemplate();
             }
 
             // Show confetti
             showConfetti();
 
-            // Auto redirect after 8 seconds (more time for PDF download)
+            // Auto redirect after 10 seconds (more time for PDF download)
             setTimeout(() => {
-                goToDashboard();
-            }, 8000);
+                showToast('Redirecting to dashboard...', 'info');
+                setTimeout(goToDashboard, 1000);
+            }, 10000);
         }
 
         function showError(message) {
@@ -301,68 +314,6 @@
         }
 
         // PDF Download Function
-        async function downloadInvoicePDF() {
-            if (!paymentData) {
-                alert('Payment data not available yet. Please wait.');
-                return;
-            }
-
-            const downloadBtn = document.getElementById('download-pdf-btn');
-            const originalText = downloadBtn.innerHTML;
-            
-            try {
-                // Show loading state
-                downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Generating PDF...';
-                downloadBtn.disabled = true;
-
-                // Update invoice template with actual data
-                updateInvoiceTemplate();
-
-                // Create PDF
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                const invoiceElement = document.getElementById('invoice-template');
-
-                // Use html2canvas to capture the invoice
-                const canvas = await html2canvas(invoiceElement, {
-                    scale: 2,
-                    useCORS: true,
-                    logging: false
-                });
-
-                const imgData = canvas.toDataURL('image/png');
-                const imgWidth = 210; // A4 width in mm
-                const pageHeight = 295; // A4 height in mm
-                const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                let heightLeft = imgHeight;
-                let position = 0;
-
-                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-
-                // Add new pages if needed
-                while (heightLeft >= 0) {
-                    position = heightLeft - imgHeight;
-                    pdf.addPage();
-                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                    heightLeft -= pageHeight;
-                }
-
-                // Download the PDF
-                const fileName = `invoice-${paymentData.invoice_id || paymentData.transaction_id || 'receipt'}.pdf`;
-                pdf.save(fileName);
-
-                // Show success message
-                showToast('PDF downloaded successfully!', 'success');
-
-            } catch (error) {
-                console.error('PDF generation error:', error);
-                showToast('Failed to generate PDF. Please try again.', 'error');
-            } finally {
-                // Restore button state
-                downloadBtn.innerHTML = originalText;
-                downloadBtn.disabled = false;
-            }
-        }
 
         // Update invoice template with actual data
         function updateInvoiceTemplate() {
@@ -379,17 +330,13 @@
             document.getElementById('pdf-invoice-id').textContent = paymentData.invoice_id || 'N/A';
             document.getElementById('pdf-transaction-id').textContent = paymentData.transaction_id || 'N/A';
             document.getElementById('pdf-issue-date').textContent = formattedDate;
-            document.getElementById('pdf-description').textContent = 
+            document.getElementById('pdf-description').textContent =
                 paymentData.subscription?.title || 'Subscription Plan';
             document.getElementById('pdf-unit-price').textContent = `$${paymentData.amount || '0.00'}`;
             document.getElementById('pdf-total-amount').textContent = `$${paymentData.amount || '0.00'}`;
             document.getElementById('pdf-subtotal').textContent = `$${paymentData.amount || '0.00'}`;
             document.getElementById('pdf-tax').textContent = '$0.00';
             document.getElementById('pdf-grand-total').textContent = `$${paymentData.amount || '0.00'}`;
-
-            // Customer info (you can customize this based on your user data)
-            document.getElementById('invoice-customer').textContent = 'Valued Customer';
-            document.getElementById('invoice-email').textContent = 'customer@example.com';
             document.getElementById('invoice-date').textContent = formattedDate;
         }
 
@@ -403,13 +350,13 @@
             updateInvoiceTemplate();
             const invoiceElement = document.getElementById('invoice-template');
             const originalDisplay = invoiceElement.style.display;
-            
+
             // Show the invoice template
             invoiceElement.classList.remove('hidden');
-            
+
             // Print
             window.print();
-            
+
             // Hide again
             invoiceElement.classList.add('hidden');
         }
@@ -417,10 +364,9 @@
         // Toast notification
         function showToast(message, type = 'info') {
             const toast = document.createElement('div');
-            toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white ${
-                type === 'success' ? 'bg-green-500' : 
+            toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white ${type === 'success' ? 'bg-green-500' :
                 type === 'error' ? 'bg-red-500' : 'bg-blue-500'
-            } z-50`;
+                } z-50`;
             toast.textContent = message;
             document.body.appendChild(toast);
 
@@ -468,7 +414,7 @@
         }
 
         function goToDashboard() {
-            window.location.href = '/dashboard/';
+            window.location.href = '/';
         }
 
         // Start verification when page loads

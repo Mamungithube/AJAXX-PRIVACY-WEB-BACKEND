@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import SubscriptionViewSet, PaymentViewSet, stripe_webhook ,payment_success_page, payment_failed_page
+from .views import SubscriptionViewSet, PaymentViewSet, stripe_webhook ,payment_success_page, payment_failed_page,verify_payment_public
 
 # Router automatically creates standard REST endpoints
 router = DefaultRouter()
@@ -36,7 +36,7 @@ router.register('payments', PaymentViewSet, basename='payment')
 urlpatterns = [
     # Stripe webhook (must be before router)
     path('webhook/', stripe_webhook, name='stripe-webhook'),
-    
+    path('verify-payment/', verify_payment_public, name='verify-payment-public'),
     # All router-generated URLs
     path('', include(router.urls)),
     path('success/', payment_success_page, name='payment-success'),
