@@ -166,7 +166,7 @@ class ResendOTPApiView(APIView):
 
         try:
             msg = EmailMessage(
-                subject='Reset Your Password - Your New Code',  # Email Subject
+                subject='Your New Code',  # Email Subject
                 body=html_content,  
                 from_email='mdmamun340921@gmail.com', # Use settings.DEFAULT_FROM_EMAIL or a hardcoded email
                 to=[email],  # Recipient list

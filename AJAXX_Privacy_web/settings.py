@@ -252,6 +252,3 @@ OPTERY_API = env('OPTERY_API_KEY')
 OPTERY_BASE = env('OPTERY_BASE_URL')
 
 
-# Debug করার জন্য print করুন
-print(f"OPTERY_BASE: {OPTERY_BASE}")
-print(f"OPTERY_API: {OPTERY_API[:10]}...") 
