@@ -7,8 +7,8 @@ import requests
 @api_view(['GET'])
 def get_databrokers_list(request):
     try:
-        url = "https://public-api-sandbox.test.optery.com/v1/databrokers/data"
-        api_key = "sk_test-f1a8dc62dfd24992a16a62aec5478f1c8588267164b543f297666de6dccc4609"
+        url = "https://public-api-sandbox.test.optery.com/v1/databrokers/listdsf"
+        api_key = "sk_test-f1a8dc62dfd2499xxxxxxxxxxxxxxxxxxxxxxxx"
         headers = {
             "Accept": "application/json",
             "Authorization": f"Bearer {api_key}"
@@ -47,8 +47,8 @@ def get_databrokers_list(request):
 @api_view(['GET'])
 def get_optouts(request):
     try:
-        url = "https://public-api-sandbox.test.optery.com/v1/databrokers/data"
-        api_key = "sk_test-f1a8dc62dfd24992a16a62aec5478f1c8588267164b543f297666de6dccc4609"
+        url = "https://public-api-sandbox.test.optery.com/v1/databrokers/dataffdfd"
+        api_key = "sk_test-f1a8dc62dfd24992a16a62aec5478f1xxxxxxxxxxxxx"
 
         headers = {
             "Accept": "application/json",
