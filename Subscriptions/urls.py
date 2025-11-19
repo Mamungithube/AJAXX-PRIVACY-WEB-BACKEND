@@ -7,6 +7,15 @@ router = DefaultRouter()
 router.register('subscriptions', SubscriptionViewSet, basename='subscription')
 router.register('payments', PaymentViewSet, basename='payment')
 
+urlpatterns = [
+    # Stripe webhook (must be before router)
+    path('webhook/', stripe_webhook, name='stripe-webhook'),
+    path('verify-payment/', verify_payment_public, name='verify-payment-public'),
+    # All router-generated URLs
+    path('', include(router.urls)),
+    path('success/', payment_success_page, name='payment-success'),
+    path('failed/', payment_failed_page, name='payment-failed'),
+]
 # Router automatically generates these endpoints:
 # 
 # SUBSCRIPTIONS:
@@ -33,15 +42,6 @@ router.register('payments', PaymentViewSet, basename='payment')
 # GET    /payments/monthly-stats/               - Monthly stats (Admin)
 # GET    /payments/earnings-overview/           - 12 month overview (Admin)
 
-urlpatterns = [
-    # Stripe webhook (must be before router)
-    path('webhook/', stripe_webhook, name='stripe-webhook'),
-    path('verify-payment/', verify_payment_public, name='verify-payment-public'),
-    # All router-generated URLs
-    path('', include(router.urls)),
-    path('success/', payment_success_page, name='payment-success'),
-    path('failed/', payment_failed_page, name='payment-failed'),
-]
 
 
 # Final URL structure:

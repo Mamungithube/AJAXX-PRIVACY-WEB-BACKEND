@@ -1,19 +1,16 @@
 from django.shortcuts import render
-from rest_framework import status
 from rest_framework.exceptions import NotFound
 from .serializers import (
     SubscriptionSerializer, PaymentSerializer,
     PaymentCreateSerializer, SavePaymentSerializer
 )
-from stripe import StripeError  # Alternative import
+from stripe import StripeError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 from django.conf import settings
-from django.db.models import Sum, Q
+from django.db.models import Sum
 from django.utils import timezone
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
@@ -21,13 +18,8 @@ import stripe
 import json
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, JsonResponse
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
-import stripe
 from django.conf import settings
-from django.utils import timezone
-from dateutil.relativedelta import relativedelta
-import json
 import logging
 
 from .models import Subscription, Payment, UserSubscription

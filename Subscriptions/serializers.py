@@ -1,14 +1,7 @@
 from rest_framework import serializers
 from .models import Subscription, Payment, UserSubscription,Feature
 from django.contrib.auth import get_user_model
-
 User = get_user_model()
-
-
-
-
-from rest_framework import serializers
-from .models import Feature, Subscription
 
 
 class FeatureSerializer(serializers.ModelSerializer):

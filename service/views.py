@@ -1,7 +1,6 @@
 
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status, viewsets
-from rest_framework import viewsets, status
 from rest_framework.response import Response
 from django.db.models import Q
 from django.core.mail import send_mail
