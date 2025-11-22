@@ -3,6 +3,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 import requests
+import requests
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 
 from .serializers import AddMemberSerializer
  
@@ -163,9 +170,6 @@ def optery_webhook(request):
 
 
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
 
 # @method_decorator(csrf_exempt, name='dispatch')
 class AddMemberAPIView(APIView):
@@ -184,10 +188,6 @@ class AddMemberAPIView(APIView):
 
 
 
-import requests
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
 
 
 OPTERY_BASE = "https://public-api-sandbox.test.optery.com/"
