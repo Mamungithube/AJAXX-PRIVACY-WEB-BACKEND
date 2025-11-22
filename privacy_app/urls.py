@@ -7,4 +7,5 @@ urlpatterns = [
     path("optery/custom-removals/", views.get_custom_removals, name="get-custom-removals"),
     path("optery/webhook/", views.optery_webhook, name="optery_webhook"),
     path("members/", views.AddMemberAPIView.as_view(), name="member"),
+    path('optery/', views.OpteryCombinedView.as_view(), name='optery-combined'),
 ]
