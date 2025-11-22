@@ -256,7 +256,12 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 class PaymentViewSet(viewsets.ModelViewSet):
 
     """------------Payment Operations----------"""
-
+    UUID_MAPPING = {
+        15: '8e88f2ce-8822-487f-9017-e75cded09a8a',
+        16: '8f48c726-728b-49cc-88fe-a8e3425f0594',
+        17: '97f094f2-e5d7-4b6b-b8ca-a8f82e80eaf5',
+        18: 'a27c44c3-6029-4a6d-83bd-c43365b0a2df',
+    }
     queryset = Payment.objects.select_related('user', 'subscription').all()
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
@@ -457,7 +462,63 @@ class PaymentViewSet(viewsets.ModelViewSet):
             }
         })
 
-
+    @action(detail=False, methods=['get'], url_path='current-subscription')
+    def current_subscription(self, request):
+        """
+        Retrieves the authenticated user's current active subscription plan
+        and includes a specific UUID based on the plan ID (15, 16, 17, or 18).
+        """
+        user = request.user
+        
+        try:
+            # 1. Get the user's active subscription record
+            user_subscription = UserSubscription.objects.get(
+                user=user,
+                status='active' 
+            )
+            
+            # 2. Get the subscription plan details
+            subscription = user_subscription.plan
+            plan_data = SubscriptionSerializer(subscription).data
+            
+            # 3. APPLY CUSTOM UUID LOGIC HERE
+            plan_id = subscription.id
+            
+            # Check if the plan_id is in the defined mapping
+            specific_uuid = self.UUID_MAPPING.get(plan_id)
+            
+            # 4. Construct the final response data
+            response_data = {
+                'plan': plan_data,
+                'starts_at': user_subscription.starts_at,
+                'expires_at': user_subscription.expires_at,
+                'status': user_subscription.status,
+                # Add the custom UUID field
+                'plan_uuid': specific_uuid
+            }
+            
+            return Response({
+                'success': True,
+                'message': 'Current active subscription fetched successfully with custom UUID',
+                'data': response_data
+            })
+            
+        except UserSubscription.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'No active subscription found for this user',
+                'data': None
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        except Exception as e:
+            logger.error(f"Error fetching current subscription for user {user.id}: {str(e)}")
+            return Response({
+                'success': False,
+                'message': 'Internal server error while fetching subscription',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])

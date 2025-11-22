@@ -149,9 +149,6 @@ class RegisterAPIView(APIView):
 
 """ ----------------again send OTP API view------------------- """
 
-
-
-
 class ResendOTPApiView(APIView):
     def post(self, request, *args, **kwargs):
         email = request.data.get('email')

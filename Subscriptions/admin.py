@@ -3,7 +3,7 @@ from .models import Subscription, Payment, UserSubscription
 
 @admin.register(Subscription)
 class SubscriptionAdmin(admin.ModelAdmin):
-    list_display = ['title', 'price', 'billing_cycle', 'created_at']
+    list_display = ['id','title', 'price', 'billing_cycle', 'created_at']
     search_fields = ['title']
 
 @admin.register(Payment)
