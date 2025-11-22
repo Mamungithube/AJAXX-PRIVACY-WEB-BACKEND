@@ -52,7 +52,6 @@ Designed to help users comply with privacy laws like GDPR / CCPA.
 |--------|-------------|
 | Login / Signup | Firebase Auth for secure access |
 | Dashboard | View scans, results & progress |
-| Scan Request | N8N automated workflow trigger |
 | Scan Results | Fetch scan status + logs from Airtable |
 | Subscription | Stripe (Basic / Silver / Gold) |
 | Settings | Control retention, delete account |
@@ -78,7 +77,6 @@ Designed to help users comply with privacy laws like GDPR / CCPA.
 | Authentication | Firebase Auth |
 | Database | PostgreSQL / MySQL / SQLite |
 | Payments | Stripe |
-| Automation Engine | N8N |
 | Storage & Data Fetch | Airtable API |
 | Logging / Compliance | Custom Export Services |
 
