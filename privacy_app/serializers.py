@@ -1,9 +1,7 @@
-# Assuming your app is named 'membership' or similar
 from rest_framework import serializers
-from .models import add_member
+from .models import OpteryScanHistory
 
-class AddMemberSerializer(serializers.ModelSerializer):
-
+class OpteryScanHistorySerializer(serializers.ModelSerializer):
     class Meta:
-        model = add_member
-        fields = '__all__'
+        model = OpteryScanHistory
+        fields = "__all__"
