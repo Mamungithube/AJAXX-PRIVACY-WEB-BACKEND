@@ -109,42 +109,42 @@ def get_optouts(request):
 
 # Not Testing 
 
-@api_view(['GET'])
-def get_custom_removals(request):
-    try:
-        email = request.query_params.get("email")
-        if not email:
-            return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+# @api_view(['GET'])
+# def get_custom_removals(request):
+#     try:
+#         email = request.query_params.get("email")
+#         if not email:
+#             return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        url = f"https://business.staging.optery.com/custom-removals?email={email}"
-        api_key = "YOUR_API_KEY"
+#         url = f"https://business.staging.optery.com/custom-removals?email={email}"
+#         api_key = "YOUR_API_KEY"
 
-        headers = {
-            "Accept": "application/json",
-            "Authorization": f"Bearer {api_key}"
-        }
+#         headers = {
+#             "Accept": "application/json",
+#             "Authorization": f"Bearer {api_key}"
+#         }
 
-        response = requests.get(url, headers=headers, timeout=10)
+#         response = requests.get(url, headers=headers, timeout=10)
 
-        if response.status_code == 200:
-            return Response(response.json(), status=status.HTTP_200_OK)
-        else:
-            return Response(
-                {
-                    "error": "Failed to fetch custom removals",
-                    "details": response.text
-                },
-                status=response.status_code
-            )
+#         if response.status_code == 200:
+#             return Response(response.json(), status=status.HTTP_200_OK)
+#         else:
+#             return Response(
+#                 {
+#                     "error": "Failed to fetch custom removals",
+#                     "details": response.text
+#                 },
+#                 status=response.status_code
+#             )
 
-    except requests.exceptions.Timeout:
-        return Response({"error": "Request timeout"}, status=status.HTTP_408_REQUEST_TIMEOUT)
+#     except requests.exceptions.Timeout:
+#         return Response({"error": "Request timeout"}, status=status.HTTP_408_REQUEST_TIMEOUT)
 
-    except requests.exceptions.RequestException as e:
-        return Response({"error": f"Request failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#     except requests.exceptions.RequestException as e:
+#         return Response({"error": f"Request failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    except Exception as e:
-        return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#     except Exception as e:
+#         return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
@@ -310,11 +310,11 @@ class OpteryMemberView(View):
             headers = {
                 "Content-Type": "application/json",
                 "Accept": "application/json",
-                "Authorization": f"Bearer {OPTERY_API_KEY}"
+                "Authorization": f"Bearer {settings.OPTERY_API_KEY}"
             }
             
             response = requests.post(
-                OPTERY_API_URL,
+                settings.OPTERY_API_URL,
                 json=payload,
                 headers=headers,
                 timeout=30
@@ -481,3 +481,82 @@ class OpteryHistoryListView(APIView):
         ]
 
         return Response({"history": data})
+    
+
+
+
+
+    # REmove data
+
+class CustomRemovalListView(APIView):
+    def get(self, request):
+        member_uuid = "58da6057-e228-437f-8e08-da3be86d74dd"
+
+        url = f"https://public-api-sandbox.test.optery.com/v1/optouts/{member_uuid}/custom-removals"
+        
+        headers = {
+            "Accept": "application/json",
+            "Authorization": "Bearer sk_test-f1a8dc62dfd24992a16a62aec5478f1c8588267164b543f297666de6dccc4609"
+        }
+
+        res = requests.get(url, headers=headers)
+
+        return Response(res.json())
+    
+
+
+
+class CustomRemovalCreateView(APIView):
+    def post(self, request):
+
+        # QUERY PARAM থেকে UUID নিন
+        member_uuid = request.GET.get("member_uuid")
+
+        if not member_uuid:
+            return Response({"error": "member_uuid is required as query parameter"}, status=400)
+
+        # এখন Optery API-তে PATH PARAM পাঠাবেন
+        url = f"https://public-api-sandbox.test.optery.com/v1/optouts/{member_uuid}/custom-removals"
+
+        exposed_url = request.data.get("exposed_url")
+        search_engine_url = request.data.get("search_engine_url")
+        search_keywords = request.data.get("search_keywords")
+        additional_information = request.data.get("additional_information")
+        proof_file = request.FILES.get("proof_of_exposure")
+
+        if not exposed_url or not proof_file:
+            return Response(
+                {"error": "exposed_url & proof_of_exposure are required"},
+                status=400
+            )
+
+        data = {
+            "exposed_url": exposed_url,
+            "search_engine_url": search_engine_url,
+            "search_keywords": search_keywords,
+            "additional_information": additional_information,
+        }
+
+        files = {
+            "proof_of_exposure": (
+                proof_file.name,
+                proof_file.read(),
+                proof_file.content_type
+            )
+        }
+
+        headers = {
+            "Accept": "application/json",
+            "Authorization": "Bearer sk_test-f1a8dc62dfd24992a16a62aec5478f1c8588267164b543f297666de6dccc4609",
+        }
+
+        api_res = requests.post(url, data=data, files=files, headers=headers)
+
+        # JSON error safe
+        try:
+            return Response(api_res.json(), status=api_res.status_code)
+        except ValueError:
+            return Response(
+                {"error": "Invalid JSON from Optery", "raw": api_res.text},
+                status=500
+            )
