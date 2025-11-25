@@ -1,4 +1,5 @@
 from re import search
+import requests
 from rest_framework import (
     generics, 
     permissions, 
@@ -10,7 +11,6 @@ from .serializers import (
     LoginSerializer, 
     ResetPasswordSerializer,
     ChangePasswordSerializer,
-    # GoogleAuthSerializer,
     ProfileSerializer,
     ProfileUpdateSerializer
 )
@@ -34,7 +34,8 @@ from rest_framework.decorators import action
 from django.core.mail import EmailMessage
 User = get_user_model()
 
-
+from .google_auth import get_or_create_google_user, generate_jwt_for_user
+import requests
 
 class UserAPIView(APIView):
     permission_classes = [IsAdminUser]
@@ -92,28 +93,34 @@ class UserAPIView(APIView):
 
 
 
-# class GoogleLoginView(generics.GenericAPIView):
-#     serializer_class = GoogleAuthSerializer
-#     permission_classes = [permissions.AllowAny]
-
-#     def post(self, request):
-#         serializer = self.get_serializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-
-#         user = serializer.create_or_login_user()
-#         refresh = RefreshToken.for_user(user)
-
-#         return Response({
-#             "refresh": str(refresh),
-#             "access": str(refresh.access_token),
-#             "user": {
-#                 "email": user.email,
-#                 "fullname": user.Fullname,
-#                 "provider": user.social_auth_provider,
-#                 "profile_picture": user.profile.profile_picture.url if user.profile.profile_picture else None,
-#             }
-#         }, status=status.HTTP_200_OK)
-
+class GoogleLoginAPIView(APIView):
+    """
+    Receives Google id_token from frontend and returns JWT tokens.
+    """
+    def post(self, request):
+        id_token = request.data.get("id_token")
+        if not id_token:
+            return Response({"error": "No token provided"}, status=status.HTTP_400_BAD_REQUEST)
+ 
+        # Verify token with Google
+        google_response = requests.get(f"https://oauth2.googleapis.com/tokeninfo?id_token={id_token}")
+        print(google_response)
+        if google_response.status_code != 200:
+            return Response({"error": "Invalid Google token"}, status=status.HTTP_400_BAD_REQUEST)
+ 
+        google_data = google_response.json()
+        print(google_data)
+        email = google_data.get("email")
+        if not email:
+            return Response({"error": "Email not found in Google token"}, status=status.HTTP_400_BAD_REQUEST)
+ 
+        # Get or create user
+        user = get_or_create_google_user(google_data)
+ 
+        # Generate JWT
+        tokens = generate_jwt_for_user(user)
+ 
+        return Response(tokens, status=status.HTTP_200_OK)
 
 
 

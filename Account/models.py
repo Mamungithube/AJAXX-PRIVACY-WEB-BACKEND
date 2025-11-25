@@ -30,6 +30,7 @@ class User(AbstractUser):
     username = None  # Remove the username field
     email = models.EmailField(unique=True)
     Fullname = models.CharField(max_length=55)
+    social_auth_provider = models.CharField(max_length=50, blank=True, null=True)
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
     

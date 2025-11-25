@@ -3,10 +3,10 @@ from .utils import generate_otp
 from .models import Profile
 from django.core.mail import send_mail
 from rest_framework_simplejwt.tokens import RefreshToken
-# from google.oauth2 import id_token
-# from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 from rest_framework import serializers
-from .models import User, Profile
+from .models import User, Profile, User
 from django.contrib.auth import get_user_model
 from django.contrib.auth import password_validation
 User = get_user_model()
@@ -31,50 +31,56 @@ class UserSerializer(serializers.ModelSerializer):
 
 # """ ----------------Google Auth Serializer------------------- """
 
+# from google.oauth2 import id_token
+# from google.auth.transport import requests as google_requests
+# from django.conf import settings
+
 # class GoogleAuthSerializer(serializers.Serializer):
 #     id_token = serializers.CharField()
 
 #     def validate(self, attrs):
 #         token = attrs.get("id_token")
+#         print("Validating Google token:", token)  # Debug statement
 #         try:
-#             idinfo = id_token.verify_oauth2_token(token, google_requests.Request())
+#             idinfo = id_token.verify_oauth2_token(
+#                 token,
+#                 google_requests.Request(),
+#                 settings.GOOGLE_CLIENT_ID    # <-- REQUIRED FIX
+#             )
 
 #             if "email" not in idinfo:
 #                 raise serializers.ValidationError("Email not found in token")
 
 #             attrs["email"] = idinfo["email"]
 #             attrs["name"] = idinfo.get("name", "")
-#             attrs["picture"] = idinfo.get("picture", "")
 #             return attrs
+
 #         except ValueError:
 #             raise serializers.ValidationError("Invalid Google token")
+
 
 #     def create_or_login_user(self):
 #         email = self.validated_data["email"]
 #         name = self.validated_data["name"]
-#         picture = self.validated_data["picture"]
 
-#         user, created = User.objects.get_or_create(email=email, defaults={
-#             "Fullname": name,
-#             "social_auth_provider": "google",
-#             "is_active": True,  # Optional, usually Google-authenticated users are active
-#         })
+#         user, created = User.objects.get_or_create(
+#             email=email,
+#             defaults={
+#                 "Fullname": name,
+#                 "social_auth_provider": "google",
+#                 "is_active": True,
+#             }
+#         )
 
 #         if created:
-#             # Create user profile
-#             Profile.objects.create(user=user, profile_picture=picture, is_verified=True)
-
-#             # Automatically create Bank Account
-#             Account.objects.create(user=user)
-
-#         else:
-#             # Optional: update profile picture if not already set
-#             if not user.profile.profile_picture:
-#                 user.profile.profile_picture = picture
-#                 user.profile.save()
+#             # Create profile
+#             Profile.objects.create(
+#                 user=user,
+#                 social_auth_provider="google",
+#                 is_verified=True,
+#             )
 
 #         return user
-
 
 """ ----------------registration Serializer------------------- """
 

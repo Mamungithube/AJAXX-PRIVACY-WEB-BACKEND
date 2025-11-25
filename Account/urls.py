@@ -14,7 +14,7 @@ from .views import (
     TotalUserCountView,
     ChangePasswordViewSet,
     UserBlockViewSet,
-    # GoogleLoginView
+    GoogleLoginAPIView
 )
 from rest_framework_simplejwt.views import (
     TokenRefreshView,
@@ -28,7 +28,7 @@ urlpatterns = [
 
     #user register and login and logout and active
     path('register/', RegisterAPIView.as_view(), name='register'),
-    # path('auth/google/', GoogleLoginView.as_view(), name='google-login'),
+    path('auth/google/', GoogleLoginAPIView.as_view(), name='google-login'),
     path('resend_otp/', ResendOTPApiView.as_view(), name='resend-otp'),
     path('verify_otp/', VerifyOTPApiView.as_view(), name='verify-otp'),
     path('login/', LoginAPIView.as_view(), name='login'),

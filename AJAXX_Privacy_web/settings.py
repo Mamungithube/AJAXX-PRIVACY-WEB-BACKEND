@@ -265,3 +265,5 @@ ALLOWED_PLAN_UUIDS = [
 
 OPTERY_API_KEY = "sk_test-f1a8dc62dfd24992a16a62aec5478f1c8588267164b543f297666de6dccc4609"
 OPTERY_API_URL = "https://public-api-sandbox.test.optery.com/v1/members"
+
+GOOGLE_CLIENT_ID = "784899934774-rcpd51tom6fgq54m0bitd2pcbe193tlg.apps.googleusercontent.com"
