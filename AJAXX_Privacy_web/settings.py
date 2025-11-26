@@ -250,10 +250,10 @@ FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
 
 
 
-EXTERNAL_API_CONFIG = {
-    'BASE_URL': 'https://public-api-sandbox.test.optery.com',  # আপনার API base URL দিন
-    'TOKEN': 'sk_test-f1a8dc62dfd24992a16a62aec5478f1c8588267164b543f297666de6dccc4609',
-}
+# EXTERNAL_API_CONFIG = {
+#     'BASE_URL': 'https://public-api-sandbox.test.optery.com',  # আপনার API base URL দিন
+#     'TOKEN': 'sk_test-f1a8dc62dfd24992a16a62aec5478f1c8588267164b543f297666de6dccc4609',
+# }
 
 # শুধুমাত্র এই ৪টি plan allowed
 ALLOWED_PLAN_UUIDS = [
@@ -263,7 +263,8 @@ ALLOWED_PLAN_UUIDS = [
     'a27c44c3-6029-4a6d-83bd-c43365b0a2df',  # Ultimate
 ]
 
-OPTERY_API_KEY = "sk_test-f1a8dc62dfd24992a16a62aec5478f1c8588267164b543f297666de6dccc4609"
-OPTERY_API_URL = "https://public-api-sandbox.test.optery.com/v1/members"
+# Optery API Configuration
+OPTERY_BASE_URL = os.getenv('OPTERY_BASE_URL')
+OPTERY_API_KEY = os.getenv('OPTERY_API_TOKEN')
 
 GOOGLE_CLIENT_ID = "784899934774-rcpd51tom6fgq54m0bitd2pcbe193tlg.apps.googleusercontent.com"
