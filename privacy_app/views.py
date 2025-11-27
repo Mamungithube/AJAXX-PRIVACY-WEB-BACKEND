@@ -481,7 +481,21 @@ class CustomRemovalListView(APIView):
     def get(self, request):
         try:
             optery_base, optery_token = get_optery_config()
-            member_uuid = "58da6057-e228-437f-8e08-da3be86d74dd"  # Consider making this dynamic
+            
+            # Query parameter থেকে member_uuid নেওয়া
+            member_uuid = request.query_params.get("member_uuid")
+            
+            # member_uuid না থাকলে error
+            if not member_uuid:
+                return Response({
+                    "error": "member_uuid is required as query parameter"
+                }, status=400)
+            
+            # UUID validation (optional but recommended)
+            if len(member_uuid) < 10:
+                return Response({
+                    "error": "Invalid member_uuid format"
+                }, status=400)
 
             url = f"{optery_base}v1/optouts/{member_uuid}/custom-removals"
             
@@ -491,7 +505,7 @@ class CustomRemovalListView(APIView):
             }
 
             try:
-                response = requests.get(url, headers=headers)
+                response = requests.get(url, headers=headers, timeout=30)
                 response_data = safe_json_parse(response.text, {})
                 return Response(response_data, status=response.status_code)
             except requests.exceptions.RequestException as e:
