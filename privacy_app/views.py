@@ -294,7 +294,7 @@ class OpteryMemberView(View):
             }
             
             response = requests.post(
-                f"{optery_base}v1/optouts",
+                f"{optery_base}v1/members",
                 json=payload,
                 headers=headers
             )
