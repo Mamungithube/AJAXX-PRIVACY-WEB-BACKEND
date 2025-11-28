@@ -240,97 +240,97 @@ def create_optery_member(request):
         }, status=500)
 
 # Class-based view alternative
-@method_decorator(csrf_exempt, name='dispatch')
-class OpteryMemberView(View):
-    """Class-based view for Optery member operations with enhanced error handling"""
+# @method_decorator(csrf_exempt, name='dispatch')
+# class OpteryMemberView(View):
+#     """Class-based view for Optery member operations with enhanced error handling"""
     
-    def post(self, request):
-        """Create a new Optery member"""
-        try:
-            optery_base, optery_token = get_optery_config()
+#     def post(self, request):
+#         """Create a new Optery member"""
+#         try:
+#             optery_base, optery_token = get_optery_config()
             
-            data = safe_json_parse(request.body, {})
-            if not data:
-                return JsonResponse({
-                    "success": False,
-                    "error": "Invalid or empty JSON"
-                }, status=400)
+#             data = safe_json_parse(request.body, {})
+#             if not data:
+#                 return JsonResponse({
+#                     "success": False,
+#                     "error": "Invalid or empty JSON"
+#                 }, status=400)
             
-            # Validate required fields
-            try:
-                validate_required_fields(data, ['email', 'first_name', 'last_name', 'plan'])
-            except ValueError as e:
-                return JsonResponse({
-                    "success": False,
-                    "error": str(e)
-                }, status=400)
+#             # Validate required fields
+#             try:
+#                 validate_required_fields(data, ['email', 'first_name', 'last_name', 'plan'])
+#             except ValueError as e:
+#                 return JsonResponse({
+#                     "success": False,
+#                     "error": str(e)
+#                 }, status=400)
             
-            payload = {
-                "email": str(data.get("email", "")),
-                "first_name": str(data.get("first_name", "")),
-                "last_name": str(data.get("last_name", "")),
-                "middle_name": data.get("middle_name"),
-                "city": data.get("city"),
-                "country": data.get("country", "US"),
-                "state": data.get("state"),
-                "birthday_day": data.get("birthday_day"),
-                "birthday_month": data.get("birthday_month"),
-                "birthday_year": data.get("birthday_year"),
-                "plan": data.get("plan"),
-                "postpone_scan": data.get("postpone_scan", 45),
-                "group_tag": data.get("group_tag"),
-                "address_line1": data.get("address_line1"),
-                "address_line2": data.get("address_line2"),
-                "zipcode": data.get("zipcode")
-            }
+#             payload = {
+#                 "email": str(data.get("email", "")),
+#                 "first_name": str(data.get("first_name", "")),
+#                 "last_name": str(data.get("last_name", "")),
+#                 "middle_name": data.get("middle_name"),
+#                 "city": data.get("city"),
+#                 "country": data.get("country", "US"),
+#                 "state": data.get("state"),
+#                 "birthday_day": data.get("birthday_day"),
+#                 "birthday_month": data.get("birthday_month"),
+#                 "birthday_year": data.get("birthday_year"),
+#                 "plan": data.get("plan"),
+#                 "postpone_scan": data.get("postpone_scan", 45),
+#                 "group_tag": data.get("group_tag"),
+#                 "address_line1": data.get("address_line1"),
+#                 "address_line2": data.get("address_line2"),
+#                 "zipcode": data.get("zipcode")
+#             }
             
-            # Remove None values
-            payload = {k: v for k, v in payload.items() if v is not None}
+#             # Remove None values
+#             payload = {k: v for k, v in payload.items() if v is not None}
             
-            headers = {
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "Authorization": f"Bearer {optery_token}"
-            }
+#             headers = {
+#                 "Content-Type": "application/json",
+#                 "Accept": "application/json",
+#                 "Authorization": f"Bearer {optery_token}"
+#             }
             
-            response = requests.post(
-                f"{optery_base}v1/members",
-                json=payload,
-                headers=headers
-            )
+#             response = requests.post(
+#                 f"{optery_base}v1/members",
+#                 json=payload,
+#                 headers=headers
+#             )
             
-            response_data = safe_json_parse(response.text, {})
+#             response_data = safe_json_parse(response.text, {})
             
-            return JsonResponse({
-                "success": response.status_code in [200, 201],
-                "status_code": response.status_code,
-                "data": response_data
-            }, status=response.status_code)
+#             return JsonResponse({
+#                 "success": response.status_code in [200, 201],
+#                 "status_code": response.status_code,
+#                 "data": response_data
+#             }, status=response.status_code)
             
-        except ValueError as e:
-            if "configuration" in str(e):
-                return JsonResponse({
-                    "success": False,
-                    "error": "Service configuration error"
-                }, status=500)
-            return JsonResponse({
-                "success": False,
-                "error": "Invalid data format"
-            }, status=400)
+#         except ValueError as e:
+#             if "configuration" in str(e):
+#                 return JsonResponse({
+#                     "success": False,
+#                     "error": "Service configuration error"
+#                 }, status=500)
+#             return JsonResponse({
+#                 "success": False,
+#                 "error": "Invalid data format"
+#             }, status=400)
             
-        except requests.exceptions.RequestException as e:
-            logger.error(f"API request failed: {str(e)}")
-            return JsonResponse({
-                "success": False,
-                "error": "Service temporarily unavailable"
-            }, status=503)
+#         except requests.exceptions.RequestException as e:
+#             logger.error(f"API request failed: {str(e)}")
+#             return JsonResponse({
+#                 "success": False,
+#                 "error": "Service temporarily unavailable"
+#             }, status=503)
             
-        except Exception as e:
-            logger.error(f"Unexpected error in OpteryMemberView: {str(e)}", exc_info=True)
-            return JsonResponse({
-                "success": False,
-                "error": "Internal server error"
-            }, status=500)
+#         except Exception as e:
+#             logger.error(f"Unexpected error in OpteryMemberView: {str(e)}", exc_info=True)
+#             return JsonResponse({
+#                 "success": False,
+#                 "error": "Internal server error"
+#             }, status=500)
 
 
 class OpteryCombinedView(APIView):
@@ -443,8 +443,8 @@ class OpteryCombinedView(APIView):
             logger.error(f"Unexpected error in OpteryCombinedView: {str(e)}", exc_info=True)
             return Response({"error": "Internal server error"}, status=500)
 
+class OpteryHistoryListView(APIView):     
 
-class OpteryHistoryListView(APIView):
     def get(self, request):
         try:
             member_uuid = request.query_params.get("member_uuid")
@@ -456,7 +456,9 @@ class OpteryHistoryListView(APIView):
             if len(member_uuid) < 10:
                 return Response({"error": "Invalid member_uuid format"}, status=400)
 
-            histories = OpteryScanHistory.objects.filter(member_uuid=member_uuid).order_by("-created_at")
+            histories = OpteryScanHistory.objects.filter(
+                member_uuid=member_uuid
+            ).order_by("-created_at")
 
             data = [
                 {
@@ -475,6 +477,7 @@ class OpteryHistoryListView(APIView):
         except Exception as e:
             logger.error(f"Error in OpteryHistoryListView: {str(e)}", exc_info=True)
             return Response({"error": "Internal server error"}, status=500)
+
 
 
 class CustomRemovalListView(APIView):
@@ -593,3 +596,39 @@ class CustomRemovalCreateView(APIView):
         except Exception as e:
             logger.error(f"Unexpected error in CustomRemovalCreateView: {str(e)}", exc_info=True)
             return Response({"error": "Internal server error"}, status=500)
+        
+
+
+
+from rest_framework import status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from .models import OpteryMember
+from .serializers import OpteryMemberSerializer
+import uuid
+
+@api_view(['GET'])
+def get_optery_member_by_uuid(request, uuid_str):
+    """
+    UUID অনুযায়ী OpteryMember এর ডেটা রিটার্ন করে
+    """
+    try:
+        # UUID validation
+        member_uuid = uuid.UUID(uuid_str)
+    except ValueError:
+        return Response(
+            {"error": "Invalid UUID format"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Get member or return 404
+    member = get_object_or_404(OpteryMember, uuid=member_uuid)
+    
+    # Serialize the data
+    serializer = OpteryMemberSerializer(member)
+    
+    return Response({
+        "success": True,
+        "data": serializer.data
+    }, status=status.HTTP_200_OK)
