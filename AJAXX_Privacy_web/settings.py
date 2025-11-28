@@ -14,15 +14,13 @@ from pathlib import Path
 import os
 import environ
 
+env = environ.Env()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-env = environ.Env(
-    # set casting and default values
-    DEBUG=(bool, False)
-)
+environ.Env.read_env()
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
 
-environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 CORS_ALLOW_ALL_ORIGINS = True  
 
@@ -141,8 +139,6 @@ SIMPLE_JWT = {
 
 # ==================== TEMPLATES & WSGI ====================
 
-ROOT_URLCONF = 'AJAXX_Privacy_web.urls'
-
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -208,8 +204,7 @@ LANGUAGE_CODE = 'en-us'
 
 # TIME_ZONE = 'UTC'
 
-# bangladesh
-TIME_ZONE = 'Asia/Dhaka'
+TIME_ZONE = 'America/New_York'
 
 USE_I18N = True
 
@@ -240,7 +235,7 @@ EMAIL_HOST_PASSWORD = env("EMAIL_PASSWORD")
 
 
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 
 
 DJSTRIPE_FOREIGN_KEY_TO_FIELD = "id"
@@ -271,5 +266,3 @@ ALLOWED_PLAN_UUIDS = [
 # Optery API Configuration
 OPTERY_BASE_URL = os.getenv('OPTERY_BASE_URL')
 OPTERY_API_KEY = os.getenv('OPTERY_API_TOKEN')
-
-GOOGLE_CLIENT_ID = "784899934774-rcpd51tom6fgq54m0bitd2pcbe193tlg.apps.googleusercontent.com"

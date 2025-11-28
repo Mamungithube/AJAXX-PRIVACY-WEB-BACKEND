@@ -60,184 +60,111 @@ def validate_required_fields(data, required_fields):
 @csrf_exempt
 @require_http_methods(["POST"])
 def create_optery_member(request):
-    """
-    Create a new member in Optery system with secure error handling
-    """
     try:
-        # Get Optery configuration from environment
         OPTERY_BASE_URL = getattr(settings, 'OPTERY_BASE_URL', os.getenv('OPTERY_BASE_URL'))
         OPTERY_API_TOKEN = getattr(settings, 'OPTERY_API_KEY', os.getenv('OPTERY_API_TOKEN'))
         
-        # Validate configuration
         if not OPTERY_BASE_URL or not OPTERY_API_TOKEN:
-            logger.error("Optery API configuration missing. Check environment variables.")
-            return JsonResponse({
-                "success": False,
-                "error": "Service configuration error"
-            }, status=500)
-        
-        # Ensure base URL ends properly
+            return JsonResponse({"success": False, "error": "Service configuration error"}, status=500)
+
         if not OPTERY_BASE_URL.endswith('/'):
             OPTERY_BASE_URL += '/'
-        
-        # Parse request body with enhanced security
+
         if not request.body:
-            return JsonResponse({
-                "success": False,
-                "error": "Empty request body"
-            }, status=400)
-            
+            return JsonResponse({"success": False, "error": "Empty request body"}, status=400)
+
         try:
             data = json.loads(request.body.decode('utf-8'))
-        except UnicodeDecodeError as e:
-            logger.error(f"Unicode decode error: {str(e)}")
-            return JsonResponse({
-                "success": False,
-                "error": "Invalid encoding in request body"
-            }, status=400)
-        
-        # Log incoming data for debugging (mask sensitive info)
-        logged_data = data.copy()
-        if 'email' in logged_data:
-            logged_data['email'] = '***'  # Mask email in logs
-        logger.info(f"Received member creation request: {logged_data}")
-        
-        # Validate required fields
+        except:
+            return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
+
         required_fields = ['email', 'first_name', 'last_name', 'plan']
-        missing_fields = [field for field in required_fields if not data.get(field)]
+        missing_fields = [f for f in required_fields if not data.get(f)]
         if missing_fields:
-            logger.warning(f"Missing required fields: {missing_fields}")
             return JsonResponse({
                 "success": False,
                 "error": f"Missing required fields: {', '.join(missing_fields)}"
             }, status=400)
-        
-        # Prepare payload with type safety and validation
-        try:
-            payload = {
-                "email": str(data.get("email", "")).strip().lower(),
-                "first_name": str(data.get("first_name", "")).strip(),
-                "last_name": str(data.get("last_name", "")).strip(),
-                "middle_name": str(data.get("middle_name", "")).strip() if data.get("middle_name") else None,
-                "city": str(data.get("city", "")).strip(),
-                "country": str(data.get("country", "US")).strip().upper(),
-                "state": str(data.get("state", "")).strip(),
-                "birthday_day": int(data["birthday_day"]) if data.get("birthday_day") and str(data["birthday_day"]).isdigit() else None,
-                "birthday_month": int(data["birthday_month"]) if data.get("birthday_month") and str(data["birthday_month"]).isdigit() else None,
-                "birthday_year": int(data["birthday_year"]) if data.get("birthday_year") and str(data["birthday_year"]).isdigit() else None,
-                "plan": str(data.get("plan", "")).strip(),
-                "postpone_scan": int(data["postpone_scan"]) if data.get("postpone_scan") and str(data["postpone_scan"]).isdigit() else 45,
-                "group_tag": data.get("group_tag") if data.get("group_tag") not in [None, "", "None", "null"] else None,
-                "address_line1": str(data.get("address_line1", "")).strip() if data.get("address_line1") else None,
-                "address_line2": str(data.get("address_line2", "")).strip() if data.get("address_line2") else None,
-                "zipcode": str(data.get("zipcode", "")).strip() if data.get("zipcode") else None
-            }
-            
-            # Validate email format
-            if payload["email"] and '@' not in payload["email"]:
-                return JsonResponse({
-                    "success": False,
-                    "error": "Invalid email format"
-                }, status=400)
-                
-        except (ValueError, TypeError) as e:
-            logger.error(f"Payload preparation error: {str(e)}")
-            return JsonResponse({
-                "success": False,
-                "error": f"Invalid data format: {str(e)}"
-            }, status=400)
-        
-        # Remove None values to clean up payload
-        payload = {k: v for k, v in payload.items() if v is not None}
-        
-        # Log payload being sent (without sensitive data)
-        logger.info(f"Sending payload to Optery API: { {k: v for k, v in payload.items() if k != 'email'} }")
-        
-        # Prepare headers with secure token
+
+        payload = {
+            "email": data["email"].strip().lower(),
+            "first_name": data["first_name"].strip(),
+            "last_name": data["last_name"].strip(),
+            "middle_name": data.get("middle_name"),
+            "city": data.get("city"),
+            "country": data.get("country", "US"),
+            "state": data.get("state"),
+            "birthday_day": data.get("birthday_day"),
+            "birthday_month": data.get("birthday_month"),
+            "birthday_year": data.get("birthday_year"),
+            "plan": data["plan"],
+            "postpone_scan": data.get("postpone_scan", 45),
+            "group_tag": data.get("group_tag"),
+            "address_line1": data.get("address_line1"),
+            "address_line2": data.get("address_line2"),
+            "zipcode": data.get("zipcode"),
+        }
+
+        payload = {k: v for k, v in payload.items() if v not in [None, "", "null"]}
+
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
             "Authorization": f"Bearer {OPTERY_API_TOKEN}",
-            "User-Agent": "YourApp/1.0"  # Add user agent for tracking
         }
-        
-        # Make API request with comprehensive error handling
+
+        full_url = f"{OPTERY_BASE_URL}v1/members"
+        response = requests.post(full_url, json=payload, headers=headers)
+
         try:
-            full_url = f"{OPTERY_BASE_URL}v1/members"
-            logger.info(f"Making request to: {full_url}")
-            
-            response = requests.post(
-                full_url,
-                json=payload,
-                headers=headers
-            )
-            
-        except requests.exceptions.Timeout:
-            return JsonResponse({
-                "success": False,
-                "error": "Request timeout - please try again"
-            }, status=504)
-            
-        except requests.exceptions.ConnectionError:
-            logger.error("Optery API connection error")
-            return JsonResponse({
-                "success": False,
-                "error": "Connection error - service temporarily unavailable"
-            }, status=503)
-            
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Optery API request exception: {str(e)}")
-            return JsonResponse({
-                "success": False,
-                "error": "Service temporarily unavailable"
-            }, status=503)
-        
-        # Log response status
-        logger.info(f"Optery API response status: {response.status_code}")
-        
-        # Safely parse response JSON
-        response_data = {}
-        if response.text:
-            try:
-                response_data = response.json()
-            except json.JSONDecodeError:
-                logger.warning(f"Invalid JSON in response: {response.text[:200]}...")
-                response_data = {"raw_response": response.text[:500]}
-        
-        # Log response for debugging (limited length)
-        logger.info(f"Response body preview: {str(response_data)[:200]}...")
-        
-        # Determine success based on status code
+            response_data = response.json()
+        except:
+            response_data = {"raw_text": response.text}
+
         is_success = response.status_code in [200, 201]
-        
-        # Return response with appropriate status
+
+        # ---------------------------------------------
+        # ✅ SAVE INTO DATABASE (IMPORTANT PART)
+        # ---------------------------------------------
+
+        member = OpteryMember.objects.create(
+            uuid=response_data.get("uuid") or uuid.uuid4(),   # If Optery returns UUID use it
+            email=payload["email"],
+            first_name=payload["first_name"],
+            last_name=payload["last_name"],
+            middle_name=payload.get("middle_name"),
+            city=payload.get("city"),
+            country=payload.get("country", "US"),
+            state=payload.get("state"),
+            birthday_day=payload.get("birthday_day"),
+            birthday_month=payload.get("birthday_month"),
+            birthday_year=payload.get("birthday_year"),
+            plan=payload["plan"],
+            postpone_scan=payload.get("postpone_scan", 45),
+            group_tag=payload.get("group_tag"),
+            address_line1=payload.get("address_line1"),
+            address_line2=payload.get("address_line2"),
+            zipcode=payload.get("zipcode"),
+
+            # Save API response details
+            optery_response=response_data,
+            status_code=response.status_code,
+            is_success=is_success
+        )
+
         return JsonResponse({
             "success": is_success,
             "status_code": response.status_code,
-            "data": response_data,
-            "sent_payload": payload if settings.DEBUG else None  # Only include in debug mode
+            "member_uuid": str(member.uuid),
+            "optery_response": response_data
         }, status=response.status_code)
-        
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON decode error: {str(e)} - Request body: {request.body.decode('utf-8')[:200] if request.body else 'Empty'}")
-        return JsonResponse({
-            "success": False,
-            "error": f"Invalid JSON in request body: {str(e)}"
-        }, status=400)
-        
-    except ValueError as e:
-        logger.error(f"Value error: {str(e)}")
-        return JsonResponse({
-            "success": False,
-            "error": f"Invalid data format: {str(e)}"
-        }, status=400)
-        
+
     except Exception as e:
-        logger.error(f"Unexpected error in create_optery_member: {str(e)}", exc_info=True)
         return JsonResponse({
             "success": False,
-            "error": "Internal server error"
+            "error": str(e)
         }, status=500)
+
 
 # Class-based view alternative
 # @method_decorator(csrf_exempt, name='dispatch')
@@ -347,6 +274,7 @@ class OpteryCombinedView(APIView):
                 return Response({"error": "Invalid member_uuid format"}, status=400)
 
             headers = {
+                "Content-Type": "application/json",
                 "Accept": "application/json",
                 "Authorization": f"Bearer {optery_token}"
             }
@@ -442,8 +370,7 @@ class OpteryCombinedView(APIView):
         except Exception as e:
             logger.error(f"Unexpected error in OpteryCombinedView: {str(e)}", exc_info=True)
             return Response({"error": "Internal server error"}, status=500)
-
-class OpteryHistoryListView(APIView):     
+class OpteryHistoryListView(APIView):
 
     def get(self, request):
         try:
@@ -452,8 +379,10 @@ class OpteryHistoryListView(APIView):
             if not member_uuid:
                 return Response({"error": "member_uuid is required"}, status=400)
 
-            # Validate UUID format
-            if len(member_uuid) < 10:
+            # Proper UUID validation
+            try:
+                uuid_obj = uuid.UUID(member_uuid)
+            except ValueError:
                 return Response({"error": "Invalid member_uuid format"}, status=400)
 
             histories = OpteryScanHistory.objects.filter(
@@ -467,16 +396,21 @@ class OpteryHistoryListView(APIView):
                     "scan_id": h.scan_id,
                     "raw_scan_data": h.raw_scan_data,
                     "raw_screenshot_data": h.raw_screenshot_data,
-                    "created_at": h.created_at
+                    "created_at": h.created_at,
                 }
                 for h in histories
             ]
 
-            return Response({"history": data})
-        
+            return Response({
+                "success": True,
+                "total": len(data),
+                "history": data
+            })
+
         except Exception as e:
             logger.error(f"Error in OpteryHistoryListView: {str(e)}", exc_info=True)
             return Response({"error": "Internal server error"}, status=500)
+
 
 
 
@@ -503,6 +437,7 @@ class CustomRemovalListView(APIView):
             url = f"{optery_base}v1/optouts/{member_uuid}/custom-removals"
             
             headers = {
+                "Content-Type": "application/json",
                 "Accept": "application/json",
                 "Authorization": f"Bearer {optery_token}"
             }
@@ -575,6 +510,7 @@ class CustomRemovalCreateView(APIView):
                 return Response({"error": "Failed to process file"}, status=400)
 
             headers = {
+                "Content-Type": "application/json",
                 "Accept": "application/json",
                 "Authorization": f"Bearer {optery_token}",
             }
@@ -627,7 +563,7 @@ def get_optery_member_by_uuid(request, uuid_str):
     
     # Serialize the data
     serializer = OpteryMemberSerializer(member)
-    
+    print("Serialized Data:", serializer.data)  # Debugging line
     return Response({
         "success": True,
         "data": serializer.data
