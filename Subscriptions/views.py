@@ -469,6 +469,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         and includes a specific UUID based on the plan ID (15, 16, 17, or 18).
         """
         user = request.user
+        now = timezone.now()
         
         try:
             # 1. Get the user's active subscription record
@@ -476,7 +477,16 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 user=user,
                 status='active' 
             )
-            
+            if user_subscription.expires_at < now:
+                # যদি বর্তমান সময় মেয়াদ শেষের সময়ের চেয়ে বেশি হয়
+                print(f"⚠️ Subscription {user_subscription.id} has expired. Updating status to 'expired'.")
+                
+                # স্ট্যাটাস আপডেট করে সেভ করা
+                user_subscription.status = 'expired'
+                user_subscription.save()
+                
+                # আপডেট করার পর এটি একটি Non-active Subscription, তাই NotFound রেসপন্স দেওয়া
+                raise UserSubscription.DoesNotExist
             # 2. Get the subscription plan details
             subscription = user_subscription.plan
             plan_data = SubscriptionSerializer(subscription).data
