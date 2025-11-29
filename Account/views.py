@@ -12,7 +12,8 @@ from .serializers import (
     ResetPasswordSerializer,
     ChangePasswordSerializer,
     ProfileSerializer,
-    ProfileUpdateSerializer
+    ProfileUpdateSerializer,
+    GoogleAuthSerializer
 )
 from .models import Profile
 from rest_framework import viewsets
@@ -90,38 +91,39 @@ class UserAPIView(APIView):
 
 
 # """ ----------------Gooooooooooogle auth  view------------------- """
-
-
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 
 class GoogleLoginAPIView(APIView):
     """
     Receives Google id_token from frontend and returns JWT tokens.
     """
     def post(self, request):
-        id_token = request.data.get("id_token")
-        if not id_token:
-            return Response({"error": "No token provided"}, status=status.HTTP_400_BAD_REQUEST)
- 
-        # Verify token with Google
-        google_response = requests.get(f"https://oauth2.googleapis.com/tokeninfo?id_token={id_token}")
-        print(google_response)
-        if google_response.status_code != 200:
-            return Response({"error": "Invalid Google token"}, status=status.HTTP_400_BAD_REQUEST)
- 
-        google_data = google_response.json()
-        print(google_data)
-        email = google_data.get("email")
-        if not email:
-            return Response({"error": "Email not found in Google token"}, status=status.HTTP_400_BAD_REQUEST)
- 
-        # Get or create user
-        user = get_or_create_google_user(google_data)
- 
-        # Generate JWT
-        tokens = generate_jwt_for_user(user)
- 
-        return Response(tokens, status=status.HTTP_200_OK)
-
+        serializer = GoogleAuthSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response(
+                serializer.errors, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create or get user
+        user = serializer.create_or_login_user()
+        
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+            "user": {
+                "email": user.email,
+                "name": user.Fullname,
+                "id": user.id
+            }
+        }, status=status.HTTP_200_OK)
 
 
 

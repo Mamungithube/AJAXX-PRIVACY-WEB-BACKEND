@@ -29,58 +29,68 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 
-# """ ----------------Google Auth Serializer------------------- """
-
-# from google.oauth2 import id_token
-# from google.auth.transport import requests as google_requests
-# from django.conf import settings
-
-# class GoogleAuthSerializer(serializers.Serializer):
-#     id_token = serializers.CharField()
-
-#     def validate(self, attrs):
-#         token = attrs.get("id_token")
-#         print("Validating Google token:", token)  # Debug statement
-#         try:
-#             idinfo = id_token.verify_oauth2_token(
-#                 token,
-#                 google_requests.Request(),
-#                 settings.GOOGLE_CLIENT_ID    # <-- REQUIRED FIX
-#             )
-
-#             if "email" not in idinfo:
-#                 raise serializers.ValidationError("Email not found in token")
-
-#             attrs["email"] = idinfo["email"]
-#             attrs["name"] = idinfo.get("name", "")
-#             return attrs
-
-#         except ValueError:
-#             raise serializers.ValidationError("Invalid Google token")
+""" ----------------Google Auth Serializer------------------- """
 
 
-#     def create_or_login_user(self):
-#         email = self.validated_data["email"]
-#         name = self.validated_data["name"]
 
-#         user, created = User.objects.get_or_create(
-#             email=email,
-#             defaults={
-#                 "Fullname": name,
-#                 "social_auth_provider": "google",
-#                 "is_active": True,
-#             }
-#         )
+from rest_framework import serializers
+import requests
+from django.conf import settings
+from .models import User, Profile
 
-#         if created:
-#             # Create profile
-#             Profile.objects.create(
-#                 user=user,
-#                 social_auth_provider="google",
-#                 is_verified=True,
-#             )
+class GoogleAuthSerializer(serializers.Serializer):
+    access_token = serializers.CharField()  # Changed from id_token
 
-#         return user
+    def validate(self, attrs):
+        token = attrs.get("access_token")
+        print("Validating Google access token:", token[:50] + "...")
+        
+        try:
+            # Use access token to get user info
+            response = requests.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            
+            if response.status_code != 200:
+                raise serializers.ValidationError("Invalid Google token")
+            
+            user_info = response.json()
+            
+            if "email" not in user_info:
+                raise serializers.ValidationError("Email not found in token")
+
+            attrs["email"] = user_info["email"]
+            attrs["name"] = user_info.get("name", "")
+            attrs["picture"] = user_info.get("picture", "")
+            return attrs
+
+        except requests.RequestException as e:
+            print(f"Token validation error: {e}")
+            raise serializers.ValidationError("Failed to validate Google token")
+
+    def create_or_login_user(self):
+        email = self.validated_data["email"]
+        name = self.validated_data["name"]
+
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                "Fullname": name,
+                "social_auth_provider": "google",
+                "is_active": True,
+            }
+        )
+
+        Profile.objects.get_or_create(
+            user=user,
+            defaults={
+                "social_auth_provider": "google",
+                "is_verified": True,
+            }
+        )
+
+        return user
 
 """ ----------------registration Serializer------------------- """
 
