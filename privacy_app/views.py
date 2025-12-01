@@ -189,20 +189,23 @@ class CreateOpteryMember(APIView):
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-"""--------------------Optery Data Scan and History Views--------------------"""
+"""--------------------Optery Data Scan Views--------------------"""
 
 class OpteryCombinedView(APIView):
     def get(self, request):
         try:
             optery_base, optery_token = get_optery_config()
             member_uuid = request.query_params.get("member_uuid")
+            email = request.query_params.get("email")  # নতুন লাইন যোগ করুন
 
             if not member_uuid:
                 return Response({"error": "member_uuid is required"}, status=400)
 
-            # Validate UUID format (basic check)
-            if len(member_uuid) < 10:  # Basic UUID format check
-                return Response({"error": "Invalid member_uuid format"}, status=400)
+            # Email validation (optional but recommended)
+            if email:
+                # Basic email format validation
+                if "@" not in email or "." not in email:
+                    return Response({"error": "Invalid email format"}, status=400)
 
             headers = {
                 "Content-Type": "application/json",
@@ -217,7 +220,9 @@ class OpteryCombinedView(APIView):
             except requests.exceptions.RequestException as e:
                 logger.error(f"Scan API request failed: {str(e)}")
                 return Response({
-                    "error": "Failed to connect to scan service"
+                    "error": "Failed to connect to scan service",
+                    "member_uuid": member_uuid,
+                    "email": email if email else "Not provided"
                 }, status=503)
 
             # Check HTTP status
@@ -225,7 +230,9 @@ class OpteryCombinedView(APIView):
                 logger.warning(f"Scan API returned status {scan_response.status_code}")
                 return Response({
                     "error": f"Scan service returned error: {scan_response.status_code}",
-                    "details": scan_response.text[:200]  # Limit detail length
+                    "details": scan_response.text[:200],
+                    "member_uuid": member_uuid,
+                    "email": email if email else "Not provided"
                 }, status=scan_response.status_code)
                 
             scan_res = safe_json_parse(scan_response.text, {})
@@ -234,13 +241,17 @@ class OpteryCombinedView(APIView):
             if isinstance(scan_res, dict) and scan_res.get("error"):
                 return Response({
                     "scan_api_error": scan_res.get("error"),
-                    "raw": scan_res
+                    "raw": scan_res,
+                    "member_uuid": member_uuid,
+                    "email": email if email else "Not provided"
                 }, status=400)
                 
             if not isinstance(scan_res, list):
                 return Response({
                     "scan_api_error": "Invalid scan response format",
-                    "received_type": type(scan_res).__name__
+                    "received_type": type(scan_res).__name__,
+                    "member_uuid": member_uuid,
+                    "email": email if email else "Not provided"
                 }, status=400)
 
             # Collect scan IDs safely
@@ -254,6 +265,7 @@ class OpteryCombinedView(APIView):
                 return Response({
                     "message": "No scans found for this member",
                     "member_uuid": member_uuid,
+                    "email": email if email else "Not provided",  # যোগ করুন
                     "scans": scan_res
                 }, status=200)
 
@@ -276,10 +288,11 @@ class OpteryCombinedView(APIView):
                     "screenshots": ss_res
                 })
 
-                # Save history safely with error handling
+                # Save history with email
                 try:
                     OpteryScanHistory.objects.create(
                         member_uuid=member_uuid,
+                        email=email,  # ডেটাবেসে email ফিল্ড থাকলে
                         scan_id=scan_id,
                         raw_scan_data=scan_res,
                         raw_screenshot_data=ss_res
@@ -289,6 +302,7 @@ class OpteryCombinedView(APIView):
 
             return Response({
                 "member_uuid": member_uuid,
+                "email": email if email else "Not provided",  # রেসপন্সে যোগ করুন
                 "scans": scan_res,
                 "screenshots": screenshots,
                 "message": "Data fetched successfully"
@@ -301,10 +315,8 @@ class OpteryCombinedView(APIView):
         except Exception as e:
             logger.error(f"Unexpected error in OpteryCombinedView: {str(e)}", exc_info=True)
             return Response({"error": "Internal server error"}, status=500)
-        
 
-
-"""--------------------Optery Data Scan and History Views--------------------"""
+"""--------------------Optery Data Optery History List View--------------------"""
 class OpteryHistoryListView(APIView):
 
     def get(self, request, email_str):
@@ -338,7 +350,11 @@ class OpteryHistoryListView(APIView):
             logger.error(f"Error in OpteryHistoryListView: {str(e)}", exc_info=True)
             return Response({"error": "Internal server error"}, status=500)
 
-"""--------------------Optery Data Scan and History Views--------------------"""
+
+
+"""--------------------Optery Data Custom Removal List View--------------------"""
+
+
 class CustomRemovalListView(APIView):
     def get(self, request):
         try:
@@ -383,7 +399,11 @@ class CustomRemovalListView(APIView):
             logger.error(f"Unexpected error in CustomRemovalListView: {str(e)}", exc_info=True)
             return Response({"error": "Internal server error"}, status=500)
 
-"""--------------------Optery Data Scan and History Views--------------------"""
+
+
+"""--------------------Optery Data Custom Removal Create View--------------------"""
+
+
 class CustomRemovalCreateView(APIView):
     def post(self, request):
         try:
@@ -459,12 +479,11 @@ class CustomRemovalCreateView(APIView):
             return Response({"error": "Internal server error"}, status=500)
         
 
-"""--------------------Optery Data Scan and History Views--------------------"""
+"""--------------------Optery get_optery_member_by_email Views--------------------"""
 
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
 from .models import OpteryMember
 from .serializers import OpteryMemberSerializer
 

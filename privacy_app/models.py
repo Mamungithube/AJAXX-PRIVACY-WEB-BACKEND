@@ -1,6 +1,7 @@
 from django.db import models
 
 class OpteryScanHistory(models.Model):
+    member_uuid = models.CharField(max_length=255)
     email = models.EmailField(max_length=255)
     scan_id = models.CharField(max_length=255)
     raw_scan_data = models.JSONField()      
@@ -8,7 +9,7 @@ class OpteryScanHistory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.member_uuid} - {self.scan_id}"
+        return f"{self.email} - {self.scan_id}"
 
 
 class OpteryMember(models.Model):
