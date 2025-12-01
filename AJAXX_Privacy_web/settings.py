@@ -256,12 +256,7 @@ FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
 # }
 
 # শুধুমাত্র এই ৪টি plan allowed
-ALLOWED_PLAN_UUIDS = [
-    '8e88f2ce-8822-487f-9017-e75cded09a8a',  # Free Basic
-    '8f48c726-728b-49cc-88fe-a8e3425f0594',  # Core
-    '97f094f2-e5d7-4b6b-b8ca-a8f82e80eaf5',  # Extended
-    'a27c44c3-6029-4a6d-83bd-c43365b0a2df',  # Ultimate
-]
+OPTERY_INTEGRATION_UUID = '8f48c726-728b-49cc-88fe-a8e3425f0594'
 
 # Optery API Configuration
 OPTERY_BASE_URL = os.getenv('OPTERY_BASE_URL')

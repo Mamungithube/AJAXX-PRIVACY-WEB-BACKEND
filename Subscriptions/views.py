@@ -254,14 +254,8 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
-
     """------------Payment Operations----------"""
-    UUID_MAPPING = {
-        15: '8e88f2ce-8822-487f-9017-e75cded09a8a',
-        16: '8f48c726-728b-49cc-88fe-a8e3425f0594',
-        17: '97f094f2-e5d7-4b6b-b8ca-a8f82e80eaf5',
-        19: 'a27c44c3-6029-4a6d-83bd-c43365b0a2df',
-    }
+    
     queryset = Payment.objects.select_related('user', 'subscription').all()
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
@@ -327,7 +321,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 }
             })
 
-        except stripe.StripeError as e:  # FIXED: removed .error
+        except stripe.StripeError as e:
             return Response({
                 'success': False,
                 'message': 'Failed to create checkout session',
@@ -466,7 +460,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
     def current_subscription(self, request):
         """
         Retrieves the authenticated user's current active subscription plan
-        and includes a specific UUID based on the plan ID (15, 16, 17, or 18).
+        and includes the Optery integration UUID (single UUID for all plans).
         """
         user = request.user
         now = timezone.now()
@@ -477,25 +471,20 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 user=user,
                 status='active' 
             )
+            
+            # Check if subscription has expired
             if user_subscription.expires_at < now:
-                # যদি বর্তমান সময় মেয়াদ শেষের সময়ের চেয়ে বেশি হয়
                 print(f"⚠️ Subscription {user_subscription.id} has expired. Updating status to 'expired'.")
-                
-                # স্ট্যাটাস আপডেট করে সেভ করা
                 user_subscription.status = 'expired'
                 user_subscription.save()
-                
-                # আপডেট করার পর এটি একটি Non-active Subscription, তাই NotFound রেসপন্স দেওয়া
                 raise UserSubscription.DoesNotExist
+            
             # 2. Get the subscription plan details
             subscription = user_subscription.plan
             plan_data = SubscriptionSerializer(subscription).data
             
-            # 3. APPLY CUSTOM UUID LOGIC HERE
-            plan_id = subscription.id
-            
-            # Check if the plan_id is in the defined mapping
-            specific_uuid = self.UUID_MAPPING.get(plan_id)
+            # 3. Get the Optery UUID from settings
+            optery_uuid = getattr(settings, 'OPTERY_INTEGRATION_UUID', '8f48c726-728b-49cc-88fe-a8e3425f0594')
             
             # 4. Construct the final response data
             response_data = {
@@ -503,13 +492,13 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 'starts_at': user_subscription.starts_at,
                 'expires_at': user_subscription.expires_at,
                 'status': user_subscription.status,
-                # Add the custom UUID field
-                'plan_uuid': specific_uuid
+                # Fixed UUID for Optery integration (same for all subscriptions)
+                'plan_uuid': optery_uuid
             }
             
             return Response({
                 'success': True,
-                'message': 'Current active subscription fetched successfully with custom UUID',
+                'message': 'Current active subscription fetched successfully',
                 'data': response_data
             })
             
@@ -594,16 +583,14 @@ def handle_checkout_session_completed(session):
 
         # Check if payment is successful
         if session.payment_status != 'paid':
-            print(
-                f"⚠️ Payment not completed. Status: {session.payment_status}")
+            print(f"⚠️ Payment not completed. Status: {session.payment_status}")
             return JsonResponse({'received': True})
 
         # Extract metadata
         subscription_id = session.metadata.get('subscription_id')
         user_id = session.metadata.get('user_id')
 
-        print(
-            f"📋 Metadata - subscription_id: {subscription_id}, user_id: {user_id}")
+        print(f"📋 Metadata - subscription_id: {subscription_id}, user_id: {user_id}")
 
         if not subscription_id or not user_id:
             print("❌ Missing required metadata in session")
@@ -613,8 +600,7 @@ def handle_checkout_session_completed(session):
         existing_payment = Payment.objects.filter(
             transaction_id=session.payment_intent).first()
         if existing_payment:
-            print(
-                f"✅ Payment already exists in database: {existing_payment.id}")
+            print(f"✅ Payment already exists in database: {existing_payment.id}")
             return JsonResponse({'received': True})
 
         # Get subscription
@@ -709,7 +695,7 @@ def handle_payment_intent_succeeded(payment_intent):
             existing_payment.save()
             print(f"✅ Payment updated: {existing_payment.id}")
         else:
-            print(f" No existing payment found for: {payment_intent['id']}")
+            print(f"ℹ️ No existing payment found for: {payment_intent['id']}")
 
         return JsonResponse({'received': True})
 
