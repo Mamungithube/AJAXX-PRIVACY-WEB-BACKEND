@@ -3,11 +3,13 @@ cachetools==6.2.2
 certifi==2025.10.5
 cffi==2.0.0
 charset-normalizer==3.4.4
+colorama==0.4.6
 cryptography==46.0.3
-dj-stripe==2.10.3
-Django==5.2.7
+Django==4.2.26
+django-cities==0.6.2
 django-cors-headers==4.9.0
 django-environ==0.12.0
+django-model-utils==5.0.0
 django-oauth-toolkit==3.1.0
 djangorestframework==3.16.1
 djangorestframework_simplejwt==5.5.1
@@ -30,8 +32,10 @@ rest-framework-simplejwt==0.0.2
 rsa==4.9.1
 six==1.17.0
 sqlparse==0.5.3
-stripe==13.2.0
+stripe==13.1.0
+swapper==1.4.0
 tokenize_rt==6.2.0
+tqdm==4.67.1
 typing_extensions==4.15.0
 tzdata==2025.2
 urllib3==2.5.0
