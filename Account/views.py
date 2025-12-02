@@ -112,6 +112,9 @@ class GoogleLoginAPIView(APIView):
         # Create or get user
         user = serializer.create_or_login_user()
         
+        # ✅ AUTO DJANGO ACTIVE - Session সেট করুন
+        login(request, user)  # এই লাইন যোগ করুন
+        
         # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
         
@@ -124,7 +127,6 @@ class GoogleLoginAPIView(APIView):
                 "id": user.id
             }
         }, status=status.HTTP_200_OK)
-
 
 
 """ ----------------registration view------------------- """
@@ -384,9 +386,9 @@ class ProfileDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
-        return get_object_or_404(Profile, user=self.request.user)
-
-
+        # Get or create profile for the current user
+        profile, created = Profile.objects.get_or_create(user=self.request.user)
+        return profile
 """ -------------------Profile Update view----------------------- """
 
 class ProfileUpdateView(generics.UpdateAPIView):
@@ -394,7 +396,9 @@ class ProfileUpdateView(generics.UpdateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
-        return get_object_or_404(Profile, user=self.request.user)
+        # Get or create profile for the current user
+        profile, created = Profile.objects.get_or_create(user=self.request.user)
+        return profile  
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -406,7 +410,6 @@ class ProfileUpdateView(generics.UpdateAPIView):
         # Return full profile data after update
         profile_serializer = ProfileSerializer(instance)
         return Response(profile_serializer.data)
-
     
 
 """ -------------------Change Password view----------------------- """

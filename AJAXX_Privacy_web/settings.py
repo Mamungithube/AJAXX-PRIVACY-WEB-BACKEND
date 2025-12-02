@@ -237,9 +237,6 @@ EMAIL_HOST_PASSWORD = env("EMAIL_PASSWORD")
 
 
 
-
-
-
 DJSTRIPE_FOREIGN_KEY_TO_FIELD = "id"
 # Stripe settings
 STRIPE_LIVE_MODE = False
@@ -249,13 +246,6 @@ STRIPE_WEBHOOK_SECRET = env('stripe_webhook_secret')
 
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
 
-
-
-
-# EXTERNAL_API_CONFIG = {
-#     'BASE_URL': 'https://public-api-sandbox.test.optery.com',  # আপনার API base URL দিন
-#     'TOKEN': 'sk_test-f1a8dc62dfd24992a16a62aec5478f1c8588267164b543f297666de6dccc4609',
-# }
 
 # শুধুমাত্র এই ৪টি plan allowed
 OPTERY_INTEGRATION_UUID = '8f48c726-728b-49cc-88fe-a8e3425f0594'

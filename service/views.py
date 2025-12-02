@@ -6,6 +6,31 @@ from django.db.models import Q
 from django.core.mail import send_mail
 from django.conf import settings
 from . import models, serializers
+from rest_framework import permissions
+
+class IsOwnerOrAdminOrReadOnly(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # ✅ GET, HEAD, OPTIONS →(anonymous user)
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        
+        # ✅ POST, PUT, PATCH, DELETE → authenticated user
+        return request.user and request.user.is_authenticated
+    
+    def has_object_permission(self, request, view, obj):
+        # ✅ Read → all users
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        
+        # ✅ DELETE → Admin বা Owner
+        if request.method == 'DELETE':
+            return request.user.is_staff or obj.reviewer == request.user
+        
+        # ✅ PUT/PATCH → only Owner
+        return obj.reviewer == request.user
+
+
+"""------------------Contact Us related views-------------------"""
 
 class ContactusViewset(viewsets.ModelViewSet):
     queryset = models.ContactUs.objects.all()
@@ -37,22 +62,23 @@ class ContactusViewset(viewsets.ModelViewSet):
 
 
 
-
+"""-----------------------Review related views-----------------------"""
 
 
 class ReviewViewset(viewsets.ModelViewSet):
     queryset = models.Review.objects.all()
     serializer_class = serializers.ReviewSerializer
+    permission_classes = [IsOwnerOrAdminOrReadOnly]  # ✅ Custom permission
 
-    # ✅ Different permissions per action
     def get_permissions(self):
-        if self.action == "list" or self.action == "retrieve":
+        if self.action in ['list', 'retrieve']:
             return [AllowAny()]  # Anyone can view
-        return [IsAuthenticated()]  # Only logged-in can edit
-
+        return [IsOwnerOrAdminOrReadOnly()]  # Custom permission for rest
+    
+    
     # ✅ List API with Search + Pagination + ?all=true support
     def list(self, request, *args, **kwargs):
-        reviews = models.Review.objects.all()
+        reviews = models.Review.objects.all().order_by('-created')  # Latest first
 
         search = request.GET.get('search')
         show_all = request.GET.get('all', 'false').lower() == 'true'
@@ -60,9 +86,9 @@ class ReviewViewset(viewsets.ModelViewSet):
         # 🔍 Search
         if search:
             reviews = reviews.filter(
-                Q(title__icontains=search) |
-                Q(content__icontains=search) |
-                Q(user__username__icontains=search)
+                Q(body__icontains=search) |
+                Q(reviewer__email__icontains=search) |
+                Q(reviewer__Fullname__icontains=search)
             )
 
         # ✅ If ?all=true → no pagination
@@ -92,9 +118,14 @@ class ReviewViewset(viewsets.ModelViewSet):
             "results": serializer.data
         })
 
+    # ✅ POST Create - Auto assign logged-in user as reviewer
+    def perform_create(self, serializer):
+        serializer.save(reviewer=self.request.user)  # ✅ 'reviewer' field use করা হলো
+
     # ✅ PUT Update
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
+        # ✅ Permission check হয়ে যাবে automatically
         serializer = self.get_serializer(instance, data=request.data, partial=False)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -103,12 +134,18 @@ class ReviewViewset(viewsets.ModelViewSet):
     # ✅ PATCH Partial Update
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
+        # ✅ Permission check হয়ে যাবে automatically
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
-
-
-
+    # ✅ DELETE - Admin or Owner can delete
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        # ✅ Permission check হয়ে যাবে automatically
+        self.perform_destroy(instance)
+        return Response(
+            {"message": "Review deleted successfully"},
+            status=status.HTTP_204_NO_CONTENT
+        )

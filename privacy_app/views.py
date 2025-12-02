@@ -265,7 +265,7 @@ class OpteryCombinedView(APIView):
                 return Response({
                     "message": "No scans found for this member",
                     "member_uuid": member_uuid,
-                    "email": email if email else "Not provided",  # যোগ করুন
+                    "email": email if email else "Not provided",
                     "scans": scan_res
                 }, status=200)
 
@@ -292,7 +292,7 @@ class OpteryCombinedView(APIView):
                 try:
                     OpteryScanHistory.objects.create(
                         member_uuid=member_uuid,
-                        email=email,  # ডেটাবেসে email ফিল্ড থাকলে
+                        email=email, 
                         scan_id=scan_id,
                         raw_scan_data=scan_res,
                         raw_screenshot_data=ss_res
