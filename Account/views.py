@@ -136,26 +136,15 @@ class RegisterAPIView(APIView):
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
-            user.is_active = False
-            user.save()
-
-            profile, created = Profile.objects.get_or_create(user=user)
-            profile.otp = generate_otp()
-            profile.save()
-
-            email_subject = 'Welcome To Our Platform!'
-            email_body = render_to_string(
-                'welcome_email.html', {'Fullname': user.Fullname})
-
-            email = EmailMultiAlternatives(
-                email_subject, '', 'mdmamun340921@gmail.com', [user.email])
-            email.attach_alternative(email_body, 'text/html')
-            email.send()
-
-            return Response({'detail': 'Check your email for confirmation'}, status=status.HTTP_201_CREATED)
+            user = serializer.save()  # Serializer এ সব কাজ হয়ে যাচ্ছে
+            
+            return Response({
+                'detail': 'Registration successful! Check your email for OTP verification.',
+                'email': user.email
+            }, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 """ ----------------again send OTP API view------------------- """
@@ -176,7 +165,7 @@ class ResendOTPApiView(APIView):
             msg = EmailMessage(
                 subject='Your New Code',  # Email Subject
                 body=html_content,  
-                from_email='mdmamun340921@gmail.com', # Use settings.DEFAULT_FROM_EMAIL or a hardcoded email
+                from_email='9cdbfd001@smtp-brevo.com', # Use settings.DEFAULT_FROM_EMAIL or a hardcoded email
                 to=[email],  # Recipient list
             )
             msg.content_subtype = "html" 

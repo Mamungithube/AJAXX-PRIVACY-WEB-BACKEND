@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .utils import generate_otp
 from .models import Profile
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage
 from rest_framework_simplejwt.tokens import RefreshToken
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -9,6 +9,8 @@ from rest_framework import serializers
 from .models import User, Profile, User
 from django.contrib.auth import get_user_model
 from django.contrib.auth import password_validation
+from django.template.loader import render_to_string
+from django.conf import settings
 User = get_user_model()
 
 """ ----------------User Serializer------------------- """
@@ -115,19 +117,33 @@ class RegistrationSerializer(serializers.ModelSerializer):
         user.is_active = False 
         user.save()
 
-        # Create Profile and send OTP as before
+        # Create Profile with OTP
         otp_code = generate_otp()
         Profile.objects.create(user=user, otp=otp_code)
-        email_subject = 'Your OTP Code : '
-        email_body = f'Your OTP Code Is : {otp_code}'
-        send_mail(
-            email_subject,
-            email_body,
-            'mdmamun340921@gmail.com', 
-            [user.email]
-        )
+        
+        # Send HTML email with OTP
+        html_content = render_to_string('send_code.html', {
+            'otp': otp_code, 
+            'user': user
+        })
+        
+        try:
+            msg = EmailMessage(
+                subject='Your OTP Code - Verify Your Account',
+                body=html_content,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[user.email],
+            )
+            msg.content_subtype = "html"
+            msg.send()
+        except Exception as e:
+            print(f"Failed to send OTP email: {e}")
+            # Optional: এখানে user delete করতে পারেন যদি email fail হয়
+            # user.delete()
+            # raise serializers.ValidationError("Failed to send verification email")
 
         return user
+
 
 
 
