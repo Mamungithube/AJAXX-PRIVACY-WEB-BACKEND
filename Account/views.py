@@ -140,7 +140,6 @@ class RegisterAPIView(APIView):
             
             return Response({
                 'detail': 'Registration successful! Check your email for OTP verification.',
-                'email': user.email
             }, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

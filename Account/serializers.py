@@ -138,9 +138,6 @@ class RegistrationSerializer(serializers.ModelSerializer):
             msg.send()
         except Exception as e:
             print(f"Failed to send OTP email: {e}")
-            # Optional: এখানে user delete করতে পারেন যদি email fail হয়
-            # user.delete()
-            # raise serializers.ValidationError("Failed to send verification email")
 
         return user
 
