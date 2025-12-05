@@ -236,6 +236,8 @@ DEFAULT_FROM_EMAIL = "craigcrisp@fortress-apps.com"
 
 
 DJSTRIPE_FOREIGN_KEY_TO_FIELD = "id"
+
+
 # Stripe settings
 STRIPE_LIVE_MODE = False
 STRIPE_SECRET_KEY = env('stripe_secret_key')
@@ -245,7 +247,7 @@ STRIPE_WEBHOOK_SECRET = env('stripe_webhook_secret')
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
 
 
-# শুধুমাত্র এই ৪টি plan allowed
+
 OPTERY_INTEGRATION_UUID = '8f48c726-728b-49cc-88fe-a8e3425f0594'
 
 # Optery API Configuration

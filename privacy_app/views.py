@@ -13,7 +13,6 @@ from rest_framework.response import Response
 import requests
 from .models import OpteryScanHistory
 
-# Configure logger
 logger = logging.getLogger(__name__)
 
 
@@ -196,8 +195,7 @@ class OpteryCombinedView(APIView):
         try:
             optery_base, optery_token = get_optery_config()
             member_uuid = request.query_params.get("member_uuid")
-            email = request.query_params.get("email")  # নতুন লাইন যোগ করুন
-
+            email = request.query_params.get("email") 
             if not member_uuid:
                 return Response({"error": "member_uuid is required"}, status=400)
 
@@ -360,10 +358,10 @@ class CustomRemovalListView(APIView):
         try:
             optery_base, optery_token = get_optery_config()
             
-            # Query parameter থেকে member_uuid নেওয়া
+            # Query parameter
             member_uuid = request.query_params.get("member_uuid")
             
-            # member_uuid না থাকলে error
+            #No member_uuid error handling
             if not member_uuid:
                 return Response({
                     "error": "member_uuid is required as query parameter"

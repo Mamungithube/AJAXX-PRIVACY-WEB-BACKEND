@@ -22,7 +22,7 @@ class IsOwnerOrAdminOrReadOnly(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
         
-        # ✅ DELETE → Admin বা Owner
+        # ✅ DELETE → Admin Or Owner
         if request.method == 'DELETE':
             return request.user.is_staff or obj.reviewer == request.user
         
@@ -120,12 +120,11 @@ class ReviewViewset(viewsets.ModelViewSet):
 
     # ✅ POST Create - Auto assign logged-in user as reviewer
     def perform_create(self, serializer):
-        serializer.save(reviewer=self.request.user)  # ✅ 'reviewer' field use করা হলো
+        serializer.save(reviewer=self.request.user)
 
     # ✅ PUT Update
     def update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        # ✅ Permission check হয়ে যাবে automatically
+        instance = self.get_object()   
         serializer = self.get_serializer(instance, data=request.data, partial=False)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -133,8 +132,7 @@ class ReviewViewset(viewsets.ModelViewSet):
 
     # ✅ PATCH Partial Update
     def partial_update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        # ✅ Permission check হয়ে যাবে automatically
+        instance = self.get_object()      
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -143,7 +141,6 @@ class ReviewViewset(viewsets.ModelViewSet):
     # ✅ DELETE - Admin or Owner can delete
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        # ✅ Permission check হয়ে যাবে automatically
         self.perform_destroy(instance)
         return Response(
             {"message": "Review deleted successfully"},

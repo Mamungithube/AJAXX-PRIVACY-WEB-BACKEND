@@ -90,11 +90,8 @@ class UserAPIView(APIView):
 
 
 
-# """ ----------------Gooooooooooogle auth  view------------------- """
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken
+""" ----------------Gooooooooooogle auth  view------------------- """
+
 
 class GoogleLoginAPIView(APIView):
     """
@@ -112,8 +109,8 @@ class GoogleLoginAPIView(APIView):
         # Create or get user
         user = serializer.create_or_login_user()
         
-        # ✅ AUTO DJANGO ACTIVE - Session সেট করুন
-        login(request, user)  # এই লাইন যোগ করুন
+        # ✅ AUTO DJANGO ACTIVE - Session Login
+        login(request, user)
         
         # Generate JWT tokens
         refresh = RefreshToken.for_user(user)

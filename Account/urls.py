@@ -41,6 +41,8 @@ urlpatterns = [
     path('change_pass/',ChangePasswordViewSet.as_view({'post':'create'}), name='change_password'),
     path('BlockUser/<int:pk>/', UserBlockViewSet.as_view({'post':'block'}), name='block-user'),
     path('BlockUser/<int:pk>/unblock/', UserBlockViewSet.as_view({'post':'unblock'}), name='unblock-user'),
+
+    
     # profile detail and update
     path('profile/', ProfileDetailView.as_view(), name='profile-detail'),
     path('profile/update/', ProfileUpdateView.as_view(), name='profile-update'),
