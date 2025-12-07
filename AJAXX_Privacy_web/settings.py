@@ -57,9 +57,9 @@ CSRF_TRUSTED_ORIGINS = [
 # ==================== SECRET KEY ====================
 SECRET_KEY = env("SECRET_KEY")
 
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['api.ajaxxdatascrubber.com', '74.208.158.27', 'localhost', '127.0.0.1','*']
 
 AUTH_USER_MODEL = "Account.User"
 
