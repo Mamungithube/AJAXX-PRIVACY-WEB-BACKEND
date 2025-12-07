@@ -59,7 +59,7 @@ SECRET_KEY = env("SECRET_KEY")
 
 DEBUG = False
 
-ALLOWED_HOSTS = ['api.ajaxxdatascrubber.com', '74.208.158.27', 'localhost', '127.0.0.1','*']
+ALLOWED_HOSTS = ['backend.ajaxxdatascrubber.com', '74.208.158.27', 'localhost', '127.0.0.1','*']
 
 AUTH_USER_MODEL = "Account.User"
 
