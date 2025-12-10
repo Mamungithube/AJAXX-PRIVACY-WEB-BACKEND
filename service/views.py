@@ -48,10 +48,10 @@ class ContactusViewset(viewsets.ModelViewSet):
             message = serializer.validated_data.get('Description')
 
             send_mail(
-                subject=f"New Contact Message: {subject}",
-                message=f"From: {email}\n\nMessage:\n{message}",
-                from_email=settings.EMAIL_HOST_USER,
-                recipient_list=[settings.EMAIL_HOST_USER],
+                subject=f"New Contact Message for Ajaxxdatascrubber.com: {subject}",
+                message=f"From: {email}\n\nHI craig,\n{message}",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=["craigcrisp@fortress-apps.com"],
                 fail_silently=False,
             )
 

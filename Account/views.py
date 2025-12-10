@@ -1,4 +1,5 @@
 from re import search
+from django.conf import settings
 import requests
 from rest_framework import (
     generics, 
@@ -159,9 +160,9 @@ class ResendOTPApiView(APIView):
 
         try:
             msg = EmailMessage(
-                subject='Your New Code',  # Email Subject
+                subject='Your New OTP Code', 
                 body=html_content,  
-                from_email='9cdbfd001@smtp-brevo.com', # Use settings.DEFAULT_FROM_EMAIL or a hardcoded email
+                from_email=settings.DEFAULT_FROM_EMAIL,
                 to=[email],  # Recipient list
             )
             msg.content_subtype = "html" 

@@ -57,9 +57,9 @@ CSRF_TRUSTED_ORIGINS = [
 # ==================== SECRET KEY ====================
 SECRET_KEY = env("SECRET_KEY")
 
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ['backend.ajaxxdatascrubber.com', '74.208.158.27', 'localhost', '127.0.0.1','*']
+ALLOWED_HOSTS = ['backend.ajaxxdatascrubber.com', '74.208.158.27', 'localhost', '127.0.0.1:8000/','*']
 
 AUTH_USER_MODEL = "Account.User"
 
@@ -216,7 +216,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -232,7 +232,7 @@ EMAIL_USE_TLS = True
 EMAIL_PORT = 587
 EMAIL_HOST_USER = env("EMAIL")
 EMAIL_HOST_PASSWORD = env("EMAIL_PASSWORD")
-DEFAULT_FROM_EMAIL = "craigcrisp@fortress-apps.com"
+DEFAULT_FROM_EMAIL = "craigcrisp@ajaxxdatascrubber.com"
 
 
 DJSTRIPE_FOREIGN_KEY_TO_FIELD = "id"
