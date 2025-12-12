@@ -1,5 +1,5 @@
 
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated ,IsAdminUser
 from rest_framework import status, viewsets
 from rest_framework.response import Response
 from django.db.models import Q
@@ -153,7 +153,15 @@ class ReviewViewset(viewsets.ModelViewSet):
 
 class FAQListViewset(viewsets.ModelViewSet):
     serializer_class = serializers.FAQSerializer
+    permission_classes = [IsAdminUser|AllowAny]
 
     def get_queryset(self):
-        queryset = models.FAQ.objects.filter(is_published=True).order_by('-created_at')
-        return queryset
+        if self.request.user and self.request.user.is_staff:
+            return models.FAQ.objects.all().order_by('-created_at')
+        return models.FAQ.objects.filter(is_published=True).order_by('-created_at')
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            print(IsAdminUser())
+            return [IsAdminUser()]
+        return [AllowAny()]

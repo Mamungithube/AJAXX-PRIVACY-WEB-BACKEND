@@ -163,17 +163,6 @@ TEMPLATES = [
  
 WSGI_APPLICATION = 'AJAXX_Privacy_web.wsgi.application'
  
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',  # বা IsAuthenticated
-    ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
-    "DATETIME_FORMAT": "%Y-%m-%d %H:%M:%S",
-}
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
  
