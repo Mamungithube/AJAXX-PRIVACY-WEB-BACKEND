@@ -25,3 +25,20 @@ class Review(models.Model):
     
     def __str__(self):
         return f"gust : {self.reviewer.Fullname if self.reviewer.Fullname else self.reviewer.email} - Rating: {self.rating}"
+
+
+
+class FAQ(models.Model):
+    question = models.CharField(max_length=250)
+    answer = models.TextField(max_length=100,blank=True,null=True)
+    is_published = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.question
+    
+    class Meta:
+        verbose_name = 'FAQ'
+        verbose_name_plural = 'FAQs'
+        ordering = ['-created_at']

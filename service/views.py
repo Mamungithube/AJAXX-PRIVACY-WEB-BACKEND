@@ -146,3 +146,14 @@ class ReviewViewset(viewsets.ModelViewSet):
             {"message": "Review deleted successfully"},
             status=status.HTTP_204_NO_CONTENT
         )
+
+
+
+"""-----------------FAQ View Set------------------------"""
+
+class FAQListViewset(viewsets.ModelViewSet):
+    serializer_class = serializers.FAQSerializer
+
+    def get_queryset(self):
+        queryset = models.FAQ.objects.filter(is_published=True).order_by('-created_at')
+        return queryset

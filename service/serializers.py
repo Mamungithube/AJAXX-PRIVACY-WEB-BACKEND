@@ -22,3 +22,9 @@ class ReviewSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         validated_data['reviewer'] = instance.reviewer  # Prevent reviewer change
         return super().update(instance, validated_data)
+    
+
+class FAQSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.FAQ
+        fields = '__all__'

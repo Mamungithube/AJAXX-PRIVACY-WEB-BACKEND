@@ -4,6 +4,7 @@ from . import views
 router = DefaultRouter() 
 router.register('review', views.ReviewViewset)
 router.register('ContactUs', views.ContactusViewset) 
+router.register('faq',views.FAQListViewset,basename='Faq')
 urlpatterns = [
     path('', include(router.urls)),
 ]

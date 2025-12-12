@@ -9,3 +9,5 @@ admin.site.register(ContactUs, ContactModelAdmin)
 
 
 admin.site.register(models.Review)
+
+admin.site.register(models.FAQ)
