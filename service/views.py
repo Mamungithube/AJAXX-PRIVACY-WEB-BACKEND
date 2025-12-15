@@ -51,7 +51,7 @@ class ContactusViewset(viewsets.ModelViewSet):
                 subject=f"New Contact Message for Ajaxxdatascrubber.com: {subject}",
                 message=f"From: {email}\n\nHI craig,\n{message}",
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=["craigcrisp@fortress-apps.com"],
+                recipient_list=["support@fortress-apps.com"],
                 fail_silently=False,
             )
 
