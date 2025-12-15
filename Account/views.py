@@ -134,7 +134,7 @@ class RegisterAPIView(APIView):
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()  # Serializer এ সব কাজ হয়ে যাচ্ছে
+            user = serializer.save()
             
             return Response({
                 'detail': 'Registration successful! Check your email for OTP verification.',
