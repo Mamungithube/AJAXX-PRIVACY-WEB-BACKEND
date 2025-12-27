@@ -54,11 +54,13 @@
             </div>
             
             <!-- Retry Options -->
-            <div class="space-y-3 mb-6">
-                <p class="w-full ">
-                    <i class="fas fa-redo-alt mr-2"></i>Try Again
-                </p>
-            </div>
+            <button
+                onclick="goToPricing()"
+                class="w-full text-red-600 font-semibold hover:text-red-800 transition duration-300 mb-6"
+            >
+                <i class="fas fa-redo-alt mr-2"></i>
+                Try Again
+            </button>
             
             <!-- Support Section -->
             <div class="border-t pt-4">
@@ -80,6 +82,16 @@
             </div>
         </div>
     </div>
+    <script>
+        function goToPricing() {
+            window.location.href = "https://www.ajaxxdatascrubber.com/pricing";
+        }
+
+        // Auto redirect after 5 seconds
+        setTimeout(() => {
+            window.location.href = "https://www.ajaxxdatascrubber.com/pricing";
+        }, 5000);
+    </script>
 
 </body>
 </html>
