@@ -4,11 +4,10 @@ from .serializers import (
     SubscriptionSerializer, PaymentSerializer,
     PaymentCreateSerializer, SavePaymentSerializer
 )
-from stripe import StripeError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django.conf import settings
 from django.db.models import Sum
 from django.utils import timezone
@@ -18,8 +17,6 @@ import stripe
 import json
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, JsonResponse
-from rest_framework.permissions import AllowAny
-from django.conf import settings
 import logging
 
 from .models import Subscription, Payment, UserSubscription
@@ -27,20 +24,163 @@ from .utils import send_payment_email
 
 logger = logging.getLogger(__name__)
 
-
 stripe.api_key = settings.STRIPE_SECRET_KEY
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.response import Response
+# views.py তে এই function টা যোগ করুন (PaymentViewSet এর বাইরে)
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_checkout_session(request):
+    """
+    🔥 STRIPE CHECKOUT (SUBSCRIPTION)
+    Creates a Stripe checkout session for subscription payment
+    """
+    print("=" * 80)
+    print("🚀 CREATE CHECKOUT SESSION STARTED")
+    print("=" * 80)
+    
+    subscription_id = request.data.get('subscription_id')
+    print(f"📦 Received subscription_id: {subscription_id}")
+    
+    if not subscription_id:
+        print("❌ No subscription_id provided")
+        return Response({
+            'success': False,
+            'message': 'Subscription ID required'
+        }, status=status.HTTP_400_BAD_REQUEST)
 
+    try:
+        subscription = Subscription.objects.get(id=subscription_id)
+        print(f"✅ Subscription found: {subscription.title}")
+        print(f"💰 Price: ${subscription.price}")
+        print(f"📅 Billing cycle: {subscription.billing_cycle}")
+    except Subscription.DoesNotExist:
+        print(f"❌ Subscription not found with id: {subscription_id}")
+        return Response({
+            'success': False,
+            'message': 'Subscription not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        # Check current Stripe field values
+        print(f"📊 Current Stripe values:")
+        print(f"   - stripe_product_id: {subscription.stripe_product_id}")
+        print(f"   - stripe_price_id: {subscription.stripe_price_id}")
+        
+        # Check if Stripe Price ID already exists
+        if subscription.stripe_price_id:
+            stripe_price_id = subscription.stripe_price_id
+            print(f"✅ Using existing Stripe Price ID: {stripe_price_id}")
+        else:
+            print(f"🔧 Creating NEW Stripe Product and Price...")
+            
+            # Create or get Stripe Product
+            if subscription.stripe_product_id:
+                stripe_product_id = subscription.stripe_product_id
+                print(f"✅ Using existing Stripe Product ID: {stripe_product_id}")
+            else:
+                print(f"🆕 Creating Stripe Product: {subscription.title}")
+                
+                stripe_product = stripe.Product.create(
+                    name=subscription.title,
+                    description=subscription.Description[:500] if len(subscription.Description) > 500 else subscription.Description,
+                )
+                stripe_product_id = stripe_product.id
+                subscription.stripe_product_id = stripe_product_id
+                subscription.save()
+                
+                print(f"✅ Created Stripe Product: {stripe_product_id}")
+            
+            # Create Stripe Price
+            price_amount = int(float(subscription.price) * 100)
+            print(f"🆕 Creating Stripe Price: ${subscription.price} ({price_amount} cents)")
+            
+            stripe_price = stripe.Price.create(
+                product=stripe_product_id,
+                unit_amount=price_amount,
+                currency='usd',
+                recurring={
+                    'interval': 'month' if subscription.billing_cycle == 'monthly' else 'year'
+                }
+            )
+            stripe_price_id = stripe_price.id
+            subscription.stripe_price_id = stripe_price_id
+            subscription.save()
+            
+            print(f"✅ Created Stripe Price: {stripe_price_id}")
+            print(f"💾 Saved to database")
+
+        # 🔥 CRITICAL FIX: Build URL properly
+        # Method 1: String concatenation (no f-string)
+        base_url = request.build_absolute_uri('/payment/success/')
+        success_url = base_url + '?session_id={CHECKOUT_SESSION_ID}'
+        
+        cancel_url = request.build_absolute_uri('/payment/failed/')
+        
+        print(f"🔗 URLs created:")
+        print(f"   - Success: {success_url}")
+        print(f"   - Cancel: {cancel_url}")
+
+        # Create Stripe checkout session
+        print(f"🎫 Creating Stripe Checkout Session...")
+        print(f"   - User: {request.user.email}")
+        print(f"   - Price ID: {stripe_price_id}")
+        
+        session = stripe.checkout.Session.create(
+            mode='subscription',
+            payment_method_types=['card'],
+            line_items=[{
+                'price': stripe_price_id,
+                'quantity': 1
+            }],
+            success_url=success_url,
+            cancel_url=cancel_url,
+            client_reference_id=str(request.user.id),
+            metadata={
+                'user_id': str(request.user.id),
+                'subscription_id': str(subscription.id)
+            },
+            customer_email=request.user.email if hasattr(request.user, 'email') else None,
+        )
+
+        print(f"✅ Checkout Session Created!")
+        print(f"   - Session ID: {session.id}")
+        print(f"   - Checkout URL: {session.url}")
+        print(f"   - Success URL sent to Stripe: {session.success_url}")
+        print("=" * 80)
+
+        return Response({
+            'success': True,
+            'message': 'Checkout session created successfully',
+            'checkout_url': session.url,
+            'session_id': session.id
+        })
+    
+    except stripe.StripeError as e:
+        print(f"❌ STRIPE ERROR: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to create checkout session',
+            'error': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    except Exception as e:
+        print(f"❌ UNEXPECTED ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        return Response({
+            'success': False,
+            'message': 'Internal server error',
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def verify_payment_public(request):
     """Verify Payment - Public Access (No Authentication Required)"""
-    print("🔍 Verifying payment (Public)...")
+    logger.info("🔍 Verifying payment (Public)...")
     session_id = request.query_params.get('session_id')
-    print(f"🔑 Session ID: {session_id}")
+    logger.info(f"🔑 Raw Session ID from URL: {session_id}")
 
     if not session_id:
         return Response({
@@ -49,23 +189,53 @@ def verify_payment_public(request):
         }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        # Session validation
-        if not session_id.startswith('cs_test_'):
+        # Clean session ID - remove whitespace, newlines, and URL encoding
+        import urllib.parse
+        session_id = urllib.parse.unquote(session_id.strip())
+
+        logger.info(
+            f"🔑 Cleaned Session ID: '{session_id}', Length: {len(session_id)}")
+
+        # Basic validation - check if session_id is not empty and has reasonable length
+        if not session_id or len(session_id) < 10:
+            logger.error(f"❌ Session ID too short or empty: '{session_id}'")
             return Response({
                 'success': False,
-                'message': 'Invalid session ID format'
+                'message': 'Invalid or missing session ID'
             }, status=status.HTTP_400_BAD_REQUEST)
 
+        # More flexible prefix validation
+        # Stripe session IDs typically start with 'cs_' (test or live)
+        if not session_id.startswith('cs_'):
+            logger.error(
+                f"❌ Invalid session ID format: '{session_id[:30]}...'")
+            return Response({
+                'success': False,
+                'message': f'Invalid session ID format. Expected format: cs_xxxxx'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        logger.info(f"✅ Session ID validation passed, calling Stripe API...")
+
         # Retrieve checkout session from Stripe
-        session = stripe.checkout.Session.retrieve(session_id)
-        print(f"💰 Stripe Session Status: {session.payment_status}")
-        print(f"👤 User ID from metadata: {session.metadata.get('user_id')}")
-        print(f"📦 Subscription ID from metadata: {session.metadata.get('subscription_id')}")
+        try:
+            session = stripe.checkout.Session.retrieve(session_id)
+        except stripe.error.InvalidRequestError as e:
+            logger.error(f"❌ Stripe API Error: {str(e)}")
+            return Response({
+                'success': False,
+                'message': f'Invalid session ID: {str(e)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        logger.info(f"💰 Stripe Session Status: {session.payment_status}")
+        logger.info(
+            f"👤 User ID from metadata: {session.metadata.get('user_id')}")
+        logger.info(
+            f"📦 Subscription ID from metadata: {session.metadata.get('subscription_id')}")
 
         if session.payment_status != 'paid':
             return Response({
                 'success': False,
-                'message': 'Payment not completed'
+                'message': f'Payment not completed. Current status: {session.payment_status}'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Get subscription and user info
@@ -73,22 +243,35 @@ def verify_payment_public(request):
         user_id = session.metadata.get('user_id')
 
         if not subscription_id or not user_id:
+            logger.error(
+                f"❌ Missing metadata - subscription_id: {subscription_id}, user_id: {user_id}")
             return Response({
                 'success': False,
-                'message': 'Missing user or subscription information in session'
+                'message': 'Missing user or subscription information in session metadata'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Check for duplicate payment
-        existing_payment = Payment.objects.filter(transaction_id=session.payment_intent).first()
-        if existing_payment:
-            print("🔄 Payment already exists, returning existing data")
-            return Response({
-                'success': True,
-                'message': 'Payment already verified',
-                'data': PaymentSerializer(existing_payment).data
-            })
+        payment_intent = session.payment_intent
+        if payment_intent:
+            existing_payment = Payment.objects.filter(
+                transaction_id=payment_intent).first()
+            if existing_payment:
+                logger.info(
+                    f"🔄 Payment already exists (ID: {existing_payment.id}), returning existing data")
+                return Response({
+                    'success': True,
+                    'message': 'Payment already verified',
+                    'data': PaymentSerializer(existing_payment).data
+                })
 
-        subscription = Subscription.objects.get(id=subscription_id)
+        try:
+            subscription = Subscription.objects.get(id=subscription_id)
+        except Subscription.DoesNotExist:
+            logger.error(f"❌ Subscription not found: {subscription_id}")
+            return Response({
+                'success': False,
+                'message': 'Subscription plan not found'
+            }, status=status.HTTP_404_NOT_FOUND)
 
         # Calculate validity dates
         now = timezone.now()
@@ -97,19 +280,29 @@ def verify_payment_public(request):
         else:  # yearly
             valid_till = now + relativedelta(years=1)
 
+        # Safely retrieve invoice ID
+        invoice_id = session.invoice if session.invoice else Payment.generate_invoice_id()
+
+        logger.info(f"💾 Creating payment record...")
+
         # Save payment
         payment = Payment.objects.create(
             user_id=user_id,
             subscription=subscription,
+            stripe_subscription_id=session.subscription,
             amount=session.amount_total / 100,  # Convert from cents
-            transaction_id=session.payment_intent,
-            invoice_id=session.invoice or Payment.generate_invoice_id(),
+            # Fallback to session ID if no payment intent
+            transaction_id=payment_intent or session.id,
+            invoice_id=invoice_id,
             status='succeeded',
             payment_date=now
         )
 
+        logger.info(
+            f"✅ Payment created successfully! Payment ID: {payment.id}")
+
         # Update or create user subscription
-        UserSubscription.objects.update_or_create(
+        user_subscription, created = UserSubscription.objects.update_or_create(
             user_id=user_id,
             defaults={
                 'plan': subscription,
@@ -119,20 +312,26 @@ def verify_payment_public(request):
             }
         )
 
+        action = "created" if created else "updated"
+        logger.info(f"👤 User subscription {action}: {user_subscription.id}")
+
         # Send email confirmation
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        user = User.objects.get(id=user_id)
+        try:
+            user = User.objects.get(id=user_id)
+            send_payment_email(
+                email=user.email,
+                amount=payment.amount,
+                transaction_id=payment.transaction_id,
+                invoice_id=payment.invoice_id,
+                payment_status='succeeded'
+            )
+            logger.info(f"📧 Email sent to: {user.email}")
+        except Exception as email_error:
+            logger.warning(f"⚠️ Email sending failed: {str(email_error)}")
 
-        send_payment_email(
-            email=user.email,
-            amount=payment.amount,
-            transaction_id=payment.transaction_id,
-            invoice_id=payment.invoice_id,
-            payment_status='succeeded'
-        )
-
-        print(f"✅ Payment verified successfully! Payment ID: {payment.id}")
+        logger.info(f"✅ Payment verification completed successfully!")
 
         return Response({
             'success': True,
@@ -140,27 +339,27 @@ def verify_payment_public(request):
             'data': PaymentSerializer(payment).data
         })
 
-    except Subscription.DoesNotExist:
-        return Response({
-            'success': False,
-            'message': 'Subscription plan not found'
-        }, status=status.HTTP_404_NOT_FOUND)
     except stripe.error.StripeError as e:
+        logger.error(f"❌ Stripe API Error: {str(e)}", exc_info=True)
         return Response({
             'success': False,
-            'message': 'Failed to verify payment with Stripe',
-            'error': str(e)
+            'message': f'Stripe API error: {str(e)}'
         }, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
-        print(f"🔴 Unexpected error: {str(e)}")
+        logger.error(f"🔴 Unexpected error: {str(e)}", exc_info=True)
         return Response({
             'success': False,
             'message': 'Internal server error',
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 def payment_success_page(request):
     """Render payment success page"""
+    # Log session_id for debugging
+    session_id = request.GET.get('session_id', 'Not provided')
+    logger.info(
+        f"🎯 Payment success page accessed with session_id: {session_id}")
     return render(request, 'payments/payment-success.html')
 
 
@@ -254,85 +453,20 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
-    """------------Payment Operations----------"""
-    
-    queryset = Payment.objects.select_related('user', 'subscription').all()
+    queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_permissions(self):
-        if self.action in ['list', 'retrieve', 'total_earnings', 'todays_earnings',
-                           'monthly_stats', 'earnings_overview']:
-            return [IsAdminUser()]
-        return [IsAuthenticated()]
-
-    @action(detail=False, methods=['post'], url_path='create-checkout-session')
-    def create_checkout_session(self, request):
-        """Create Stripe Checkout Session"""
-        subscription_id = request.data.get('subscription_id')
-
-        if not subscription_id:
-            return Response({
-                'success': False,
-                'message': 'Subscription ID is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            subscription = Subscription.objects.get(id=subscription_id)
-        except Subscription.DoesNotExist:
-            return Response({
-                'success': False,
-                'message': 'Subscription plan not found'
-            }, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            # Create Stripe Checkout Session
-            checkout_session = stripe.checkout.Session.create(
-                payment_method_types=['card'],
-                line_items=[{
-                    'price_data': {
-                        'currency': 'usd',
-                        # Convert to cents
-                        'unit_amount': int(subscription.price * 100),
-                        'product_data': {
-                            'name': subscription.title,
-                            'description': subscription.Description,
-                        },
-                    },
-                    'quantity': 1,
-                }],
-                mode='payment',
-                success_url=request.build_absolute_uri(
-                    '/payment/success/') + '?session_id={CHECKOUT_SESSION_ID}',
-                cancel_url=request.build_absolute_uri('/payment/failed/'),
-                client_reference_id=str(request.user.id),
-                metadata={
-                    'subscription_id': str(subscription_id),
-                    'user_id': request.user.id,
-                }
-            )
-
-            return Response({
-                'success': True,
-                'message': 'Checkout session created',
-                'data': {
-                    'session_id': checkout_session.id,
-                    'checkout_url': checkout_session.url
-                }
-            })
-
-        except stripe.StripeError as e:
-            return Response({
-                'success': False,
-                'message': 'Failed to create checkout session',
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    def get_queryset(self):
+        """Filter payments for non-admin users"""
+        if self.request.user.is_staff:
+            return Payment.objects.all()
+        return Payment.objects.filter(user=self.request.user)
 
 
-    @action(detail=False, methods=['get'], url_path='total-earnings')
+    @action(detail=False, methods=['get'], url_path='total-earnings', permission_classes=[IsAdminUser])
     def total_earnings(self, request):
-        """-------------------Get Total Earnings----------------------"""
-
+        """Get Total Earnings"""
         total = Payment.objects.filter(status='succeeded').aggregate(
             total=Sum('amount')
         )['total'] or 0
@@ -343,7 +477,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
             'data': {'total': float(total)}
         })
 
-    @action(detail=False, methods=['get'], url_path='todays-earnings')
+    @action(detail=False, methods=['get'], url_path='todays-earnings', permission_classes=[IsAdminUser])
     def todays_earnings(self, request):
         """Get Today's Earnings"""
         today = timezone.now().date()
@@ -361,10 +495,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
             'data': {'total': float(total)}
         })
 
-    @action(detail=False, methods=['get'], url_path='monthly-stats')
+    @action(detail=False, methods=['get'], url_path='monthly-stats', permission_classes=[IsAdminUser])
     def monthly_stats(self, request):
-        """------------Get Monthly Earnings Stats with Growth Percentage----------"""
-
+        """Get Monthly Earnings Stats with Growth Percentage"""
         now = timezone.now()
         current_month_start = now.replace(
             day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -403,13 +536,19 @@ class PaymentViewSet(viewsets.ModelViewSet):
             }
         })
 
-    @action(detail=False, methods=['get'], url_path='earnings-overview')
+    @action(detail=False, methods=['get'], url_path='earnings-overview', permission_classes=[IsAdminUser])
     def earnings_overview(self, request):
         """Get 12 Months Earnings Overview"""
         year = request.query_params.get('year')
 
         if year:
-            base_date = datetime(int(year), 12, 31)
+            try:
+                base_date = datetime(int(year), 12, 31)
+            except ValueError:
+                return Response({
+                    'success': False,
+                    'message': 'Invalid year format'
+                }, status=status.HTTP_400_BAD_REQUEST)
         else:
             base_date = timezone.now()
 
@@ -431,6 +570,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
             earnings_data.append({
                 'month': month_date.strftime('%b'),
+                'year': month_date.year,
                 'total': float(total)
             })
 
@@ -460,118 +600,107 @@ class PaymentViewSet(viewsets.ModelViewSet):
     def current_subscription(self, request):
         """
         Retrieves the authenticated user's current active subscription plan
-        and includes the Optery integration UUID (single UUID for all plans).
         """
         user = request.user
         now = timezone.now()
-        
+
         try:
-            # 1. Get the user's active subscription record
+            # Get the user's active subscription record
             user_subscription = UserSubscription.objects.get(
                 user=user,
-                status='active' 
+                status='active'
             )
-            
+
             # Check if subscription has expired
             if user_subscription.expires_at < now:
-                print(f"⚠️ Subscription {user_subscription.id} has expired. Updating status to 'expired'.")
+                logger.warning(
+                    f"⚠️ Subscription {user_subscription.id} has expired. Updating status to 'expired'.")
                 user_subscription.status = 'expired'
                 user_subscription.save()
                 raise UserSubscription.DoesNotExist
-            
-            # 2. Get the subscription plan details
+
+            # Get the subscription plan details
             subscription = user_subscription.plan
             plan_data = SubscriptionSerializer(subscription).data
-            
-            # 3. Get the Optery UUID from settings
-            optery_uuid = getattr(settings, 'OPTERY_INTEGRATION_UUID', '8f48c726-728b-49cc-88fe-a8e3425f0594')
-            
-            # 4. Construct the final response data
+
+            # Get the Optery UUID from settings
+            optery_uuid = getattr(
+                settings, 'OPTERY_INTEGRATION_UUID', '8f48c726-728b-49cc-88fe-a8e3425f0594')
+
+            # Construct the final response data
             response_data = {
                 'plan': plan_data,
                 'starts_at': user_subscription.starts_at,
                 'expires_at': user_subscription.expires_at,
                 'status': user_subscription.status,
-                # Fixed UUID for Optery integration (same for all subscriptions)
                 'plan_uuid': optery_uuid
             }
-            
+
             return Response({
                 'success': True,
                 'message': 'Current active subscription fetched successfully',
                 'data': response_data
             })
-            
+
         except UserSubscription.DoesNotExist:
             return Response({
                 'success': False,
                 'message': 'No active subscription found for this user',
                 'data': None
             }, status=status.HTTP_404_NOT_FOUND)
-        
+
         except Exception as e:
-            logger.error(f"Error fetching current subscription for user {user.id}: {str(e)}")
+            logger.error(
+                f"Error fetching current subscription for user {user.id}: {str(e)}", exc_info=True)
             return Response({
                 'success': False,
                 'message': 'Internal server error while fetching subscription',
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        
+
+
+# ======================== WEBHOOK HANDLERS ========================
+
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def stripe_webhook(request):
-    """----------Handle Stripe Webhooks-----------"""
-    if request.content_type == 'application/json':
-        data = json.loads(request.body)
-        event_type = data.get('type')
-        session = data.get('data', {}).get('object', {})
-
-        if event_type == 'checkout.session.completed':
-            return handle_checkout_session_completed(session)
-
-    print("🔔 Webhook received - Starting processing...")
-
+    """
+    ✅ SECURE STRIPE WEBHOOK
+    """
     payload = request.body
     sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
-    webhook_secret = settings.STRIPE_WEBHOOK_SECRET
-
-    if not webhook_secret:
-        logger.error("❌ STRIPE_WEBHOOK_SECRET is not set in settings")
-        return JsonResponse({'error': 'Webhook secret not configured'}, status=500)
 
     try:
         event = stripe.Webhook.construct_event(
-            payload, sig_header, webhook_secret
+            payload,
+            sig_header,
+            settings.STRIPE_WEBHOOK_SECRET
         )
-        print(f"✅ Event constructed: {event['type']}")
     except ValueError as e:
-        logger.error(f"❌ Invalid payload: {e}")
+        logger.error(f"Invalid payload: {e}")
         return JsonResponse({'error': 'Invalid payload'}, status=400)
     except stripe.error.SignatureVerificationError as e:
-        logger.error(f"❌ Invalid signature: {e}")
+        logger.error(f"Invalid signature: {e}")
         return JsonResponse({'error': 'Invalid signature'}, status=400)
-    except Exception as e:
-        logger.error(f"❌ Webhook construction error: {e}")
-        return JsonResponse({'error': 'Webhook processing failed'}, status=400)
 
-    # Handle checkout session completed
-    if event['type'] == 'checkout.session.completed':
-        print("🛒 Processing checkout.session.completed event")
-        return handle_checkout_session_completed(event['data']['object'])
+    event_type = event['type']
+    data = event['data']['object']
 
-    # Handle payment intent events
-    elif event['type'] == 'payment_intent.succeeded':
-        print("💳 Processing payment_intent.succeeded event")
-        return handle_payment_intent_succeeded(event['data']['object'])
+    logger.info(f"📨 Received webhook event: {event_type}")
 
-    elif event['type'] == 'payment_intent.payment_failed':
-        print("❌ Processing payment_intent.payment_failed event")
-        return handle_payment_intent_failed(event['data']['object'])
+    # Handle different event types
+    if event_type == 'checkout.session.completed':
+        handle_checkout_session_completed(data)
 
-    else:
-        print(f"Unhandled event type: {event['type']}")
+    elif event_type == 'invoice.paid':
+        handle_invoice_paid(data)
+
+    elif event_type == 'invoice.payment_failed':
+        handle_invoice_failed(data)
+
+    elif event_type == 'customer.subscription.deleted':
+        handle_subscription_cancelled(data)
 
     return JsonResponse({'received': True})
 
@@ -579,37 +708,43 @@ def stripe_webhook(request):
 def handle_checkout_session_completed(session):
     """Handle completed checkout session"""
     try:
-        print(f"🔍 Session details: {session}")
+        logger.info(f"🔍 Processing checkout session: {session['id']}")
 
         # Check if payment is successful
-        if session.payment_status != 'paid':
-            print(f"⚠️ Payment not completed. Status: {session.payment_status}")
-            return JsonResponse({'received': True})
+        if session.get('payment_status') != 'paid':
+            logger.warning(
+                f"⚠️ Payment not completed. Status: {session.get('payment_status')}")
+            return
 
         # Extract metadata
-        subscription_id = session.metadata.get('subscription_id')
-        user_id = session.metadata.get('user_id')
+        metadata = session.get('metadata', {})
+        subscription_id = metadata.get('subscription_id')
+        user_id = metadata.get('user_id')
 
-        print(f"📋 Metadata - subscription_id: {subscription_id}, user_id: {user_id}")
+        logger.info(
+            f"📋 Metadata - subscription_id: {subscription_id}, user_id: {user_id}")
 
         if not subscription_id or not user_id:
-            print("❌ Missing required metadata in session")
-            return JsonResponse({'error': 'Missing metadata'}, status=400)
+            logger.error("❌ Missing required metadata in session")
+            return
 
         # Check if payment already exists to avoid duplicates
-        existing_payment = Payment.objects.filter(
-            transaction_id=session.payment_intent).first()
-        if existing_payment:
-            print(f"✅ Payment already exists in database: {existing_payment.id}")
-            return JsonResponse({'received': True})
+        payment_intent = session.get('payment_intent')
+        if payment_intent:
+            existing_payment = Payment.objects.filter(
+                transaction_id=payment_intent).first()
+            if existing_payment:
+                logger.info(
+                    f"✅ Payment already exists in database: {existing_payment.id}")
+                return
 
         # Get subscription
         try:
             subscription = Subscription.objects.get(id=subscription_id)
-            print(f"📦 Subscription found: {subscription.title}")
+            logger.info(f"📦 Subscription found: {subscription.title}")
         except Subscription.DoesNotExist:
-            print(f"❌ Subscription not found: {subscription_id}")
-            return JsonResponse({'error': 'Subscription not found'}, status=404)
+            logger.error(f"❌ Subscription not found: {subscription_id}")
+            return
 
         # Calculate validity dates
         now = timezone.now()
@@ -618,23 +753,28 @@ def handle_checkout_session_completed(session):
         else:  # yearly
             valid_till = now + relativedelta(years=1)
 
-        print(f"📅 Validity calculated: {valid_till}")
+        logger.info(f"📅 Validity calculated: {valid_till}")
+
+        # Get invoice ID
+        invoice_id = session.get('invoice') or Payment.generate_invoice_id()
 
         # Create payment record
         try:
             payment = Payment.objects.create(
                 user_id=user_id,
                 subscription=subscription,
-                amount=session.amount_total / 100,  # Convert from cents
-                transaction_id=session.payment_intent,
-                invoice_id=session.invoice or Payment.generate_invoice_id(),
+                stripe_subscription_id=session.get('subscription'),
+                amount=session.get('amount_total', 0) /
+                100,  # Convert from cents
+                transaction_id=payment_intent,
+                invoice_id=invoice_id,
                 status='succeeded',
                 payment_date=now
             )
-            print(f"💰 Payment created successfully: {payment.id}")
+            logger.info(f"💰 Payment created successfully: {payment.id}")
         except Exception as e:
-            print(f"❌ Payment creation failed: {e}")
-            return JsonResponse({'error': 'Payment creation failed'}, status=500)
+            logger.error(f"❌ Payment creation failed: {e}", exc_info=True)
+            return
 
         # Update or create user subscription
         try:
@@ -648,10 +788,11 @@ def handle_checkout_session_completed(session):
                 }
             )
             action = "created" if created else "updated"
-            print(f"👤 User subscription {action}: {user_subscription.id}")
+            logger.info(
+                f"👤 User subscription {action}: {user_subscription.id}")
         except Exception as e:
-            print(f"❌ User subscription update failed: {e}")
-            # Don't return error here, just log it
+            logger.error(
+                f"❌ User subscription update failed: {e}", exc_info=True)
 
         # Send email confirmation
         try:
@@ -666,59 +807,120 @@ def handle_checkout_session_completed(session):
                 invoice_id=payment.invoice_id,
                 payment_status='succeeded'
             )
-            print(f"📧 Email sent to: {user.email}")
+            logger.info(f"📧 Email sent to: {user.email}")
         except Exception as e:
-            print(f"⚠️ Email sending failed: {e}")
-            # Continue even if email fails
+            logger.warning(f"⚠️ Email sending failed: {e}")
 
-        print("✅ Checkout session processing completed successfully")
-        return JsonResponse({'received': True})
+        logger.info("✅ Checkout session processing completed successfully")
 
     except Exception as e:
-        logger.error(f"❌ Error in handle_checkout_session_completed: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({'error': 'Processing failed'}, status=500)
+        logger.error(
+            f"❌ Error in handle_checkout_session_completed: {str(e)}", exc_info=True)
 
 
-def handle_payment_intent_succeeded(payment_intent):
-    """Handle successful payment intent"""
+def handle_invoice_paid(invoice):
+    """Handle successful invoice payment (for recurring subscriptions)"""
     try:
-        print(f"🔍 Payment Intent: {payment_intent['id']}")
+        logger.info(f"💳 Processing paid invoice: {invoice['id']}")
 
-        # Check if payment already exists
-        existing_payment = Payment.objects.filter(
-            transaction_id=payment_intent['id']).first()
-        if existing_payment:
-            print(f"🔄 Updating existing payment: {existing_payment.id}")
-            existing_payment.status = 'succeeded'
-            existing_payment.save()
-            print(f"✅ Payment updated: {existing_payment.id}")
-        else:
-            print(f"ℹ️ No existing payment found for: {payment_intent['id']}")
+        subscription_id = invoice.get('subscription')
 
-        return JsonResponse({'received': True})
+        if not subscription_id:
+            logger.warning("⚠️ No subscription ID in invoice")
+            return
+
+        # Find the payment record by stripe subscription ID
+        payment = Payment.objects.filter(
+            stripe_subscription_id=subscription_id).order_by('-created_at').first()
+
+        if payment:
+            # Update user subscription validity
+            user_subscription = UserSubscription.objects.filter(
+                user_id=payment.user_id).first()
+
+            if user_subscription:
+                now = timezone.now()
+                if user_subscription.plan.billing_cycle == 'monthly':
+                    valid_till = now + relativedelta(months=1)
+                else:
+                    valid_till = now + relativedelta(years=1)
+
+                user_subscription.expires_at = valid_till
+                user_subscription.status = 'active'
+                user_subscription.save()
+
+                # Create new payment record for this renewal
+                Payment.objects.create(
+                    user=payment.user,
+                    subscription=payment.subscription,
+                    stripe_subscription_id=subscription_id,
+                    amount=invoice.get('amount_paid', 0) / 100,
+                    transaction_id=invoice.get(
+                        'payment_intent', f"pi_{invoice['id']}"),
+                    invoice_id=invoice['id'],
+                    status='succeeded',
+                    payment_date=now
+                )
+
+                logger.info(f"✅ Subscription renewed until: {valid_till}")
 
     except Exception as e:
-        logger.error(f"❌ Error in handle_payment_intent_succeeded: {str(e)}")
-        return JsonResponse({'error': 'Payment intent processing failed'}, status=500)
+        logger.error(
+            f"❌ Error in handle_invoice_paid: {str(e)}", exc_info=True)
 
 
-def handle_payment_intent_failed(payment_intent):
-    """Handle failed payment intent"""
+def handle_invoice_failed(invoice):
+    """Handle failed invoice payment"""
     try:
-        print(f"🔍 Failed Payment Intent: {payment_intent['id']}")
+        logger.info(f"❌ Processing failed invoice: {invoice['id']}")
 
-        # Update existing payment if found
-        existing_payment = Payment.objects.filter(
-            transaction_id=payment_intent['id']).first()
-        if existing_payment:
-            existing_payment.status = 'failed'
-            existing_payment.save()
-            print(f"❌ Payment marked as failed: {existing_payment.id}")
+        subscription_id = invoice.get('subscription')
 
-        return JsonResponse({'received': True})
+        if subscription_id:
+            payment = Payment.objects.filter(
+                stripe_subscription_id=subscription_id).order_by('-created_at').first()
+
+            if payment:
+                # Update user subscription status
+                user_subscription = UserSubscription.objects.filter(
+                    user_id=payment.user_id).first()
+
+                if user_subscription:
+                    user_subscription.status = 'payment_failed'
+                    user_subscription.save()
+
+                    logger.info(
+                        f"⚠️ Subscription marked as payment failed for user: {payment.user_id}")
 
     except Exception as e:
-        logger.error(f"❌ Error in handle_payment_intent_failed: {str(e)}")
-        return JsonResponse({'error': 'Payment intent processing failed'}, status=500)
+        logger.error(
+            f"❌ Error in handle_invoice_failed: {str(e)}", exc_info=True)
+
+
+def handle_subscription_cancelled(subscription):
+    """Handle subscription cancellation"""
+    try:
+        logger.info(
+            f"🚫 Processing cancelled subscription: {subscription['id']}")
+
+        stripe_subscription_id = subscription['id']
+
+        # Find payment with this subscription ID
+        payment = Payment.objects.filter(
+            stripe_subscription_id=stripe_subscription_id).order_by('-created_at').first()
+
+        if payment:
+            # Update user subscription status
+            user_subscription = UserSubscription.objects.filter(
+                user_id=payment.user_id).first()
+
+            if user_subscription:
+                user_subscription.status = 'cancelled'
+                user_subscription.save()
+
+                logger.info(
+                    f"✅ Subscription cancelled for user: {payment.user_id}")
+
+    except Exception as e:
+        logger.error(
+            f"❌ Error in handle_subscription_cancelled: {str(e)}", exc_info=True)

@@ -239,40 +239,63 @@
         // Payment data storage
         let paymentData = null;
 
-        // Get session ID from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const sessionId = urlParams.get('session_id');
+        // Get session ID from URL with better parsing
+        function getSessionId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            let sessionId = urlParams.get('session_id');
 
-        // Verify payment
+            // Clean and decode the session ID
+            if (sessionId) {
+                sessionId = decodeURIComponent(sessionId.trim());
+                console.log('📋 Extracted Session ID:', sessionId);
+                console.log('📏 Session ID Length:', sessionId.length);
+            } else {
+                console.error('❌ No session_id found in URL');
+            }
+
+            return sessionId;
+        }
+
+        const sessionId = getSessionId();
+
+        // Verify payment with better error handling
         async function verifyPayment() {
             if (!sessionId) {
-                showError('No session ID found');
+                showError('No session ID found in URL. Please check your payment confirmation email.');
                 return;
             }
 
-            console.log('🔄 Verifying payment with session:', sessionId);
+            console.log('🔄 Starting payment verification...');
+            console.log('🔑 Session ID:', sessionId);
 
             try {
-                // ✅ Use the new public endpoint
-                const response = await fetch(`/payment/verify-payment/?session_id=${sessionId}`, {
+                // Build URL with proper encoding
+                const verifyUrl = `/payment/verify-payment/?session_id=${encodeURIComponent(sessionId)}`;
+                console.log('🌐 Calling URL:', verifyUrl);
+
+                const response = await fetch(verifyUrl, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
                     }
                 });
 
-                const result = await response.json();
-                console.log('✅ Verification response:', result);
+                console.log('📡 Response Status:', response.status);
 
-                if (result.success) {
+                const result = await response.json();
+                console.log('📦 Response Data:', result);
+
+                if (result.success && result.data) {
                     paymentData = result.data;
+                    console.log('✅ Payment verified successfully!');
                     showSuccess(paymentData);
                 } else {
+                    console.error('❌ Verification failed:', result.message);
                     showError(result.message || 'Payment verification failed');
                 }
             } catch (error) {
-                console.error('❌ Verification error:', error);
-                showError('Network error. Please check your connection.');
+                console.error('❌ Network or parsing error:', error);
+                showError('Unable to verify payment. Please contact support with your session ID.');
             }
         }
 
@@ -280,40 +303,56 @@
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('success-actions').classList.remove('hidden');
 
-            // Update transaction details with better formatting
             if (pData) {
-                console.log('Payment Data:', pData);
+                console.log('📊 Displaying Payment Data:', pData);
 
-                // Format transaction ID (show first and last 8 characters)
+                // Format transaction ID
                 const transId = pData.transaction_id || 'N/A';
                 const formattedTransId = transId.length > 16 ?
                     `${transId.substring(0, 8)}...${transId.substring(transId.length - 8)}` : transId;
 
                 document.getElementById('transaction-id').textContent = formattedTransId;
                 document.getElementById('invoice-id').textContent = pData.invoice_id || 'N/A';
-                document.getElementById('amount').textContent = pData.amount ? `$${parseFloat(pData.amount).toFixed(2)}` : 'N/A';
 
-                // Update PDF template data immediately
+                // Format amount
+                const amount = pData.amount || 0;
+                document.getElementById('amount').textContent = `$${parseFloat(amount).toFixed(2)}`;
+
+                // Update invoice template
                 updateInvoiceTemplate();
             }
 
             // Show confetti
             showConfetti();
 
-            // Auto redirect after 10 seconds (more time for PDF download)
+            // Auto redirect after 8 seconds
             setTimeout(() => {
                 showToast('Redirecting to dashboard...', 'info');
-                setTimeout(goToDashboard, 10000);
-            }, 10000);
+                setTimeout(goToDashboard, 2000);
+            }, 8000);
         }
 
         function showError(message) {
+            console.error('🚨 Showing error:', message);
+
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('error-message').classList.remove('hidden');
-            document.getElementById('error-text').textContent = message;
-        }
 
-        // PDF Download Function
+            document.getElementById('error-message').innerHTML = `
+        <div class="flex items-start">
+            <i class="fas fa-exclamation-triangle text-red-500 mr-3 mt-1"></i>
+            <div class="text-left flex-1">
+                <p class="text-red-800 font-semibold">${message}</p>
+                <p class="text-red-600 text-sm mt-1">Please contact support at support@fortress-apps.com</p>
+                <p class="text-gray-600 text-xs mt-2 font-mono">Session ID: ${sessionId || 'Not available'}</p>
+                <button onclick="goToPricing()" 
+                    class="mt-3 text-blue-600 hover:text-blue-800 text-sm font-semibold">
+                    <i class="fas fa-arrow-left mr-1"></i>Return to Pricing
+                </button>
+            </div>
+        </div>
+    `;
+        }
 
         // Update invoice template with actual data
         function updateInvoiceTemplate() {
@@ -326,17 +365,19 @@
                 day: 'numeric'
             });
 
-            // Update invoice content
             document.getElementById('pdf-invoice-id').textContent = paymentData.invoice_id || 'N/A';
             document.getElementById('pdf-transaction-id').textContent = paymentData.transaction_id || 'N/A';
             document.getElementById('pdf-issue-date').textContent = formattedDate;
-            document.getElementById('pdf-description').textContent =
-                paymentData.subscription?.title || 'Subscription Plan';
-            document.getElementById('pdf-unit-price').textContent = `$${paymentData.amount || '0.00'}`;
-            document.getElementById('pdf-total-amount').textContent = `$${paymentData.amount || '0.00'}`;
-            document.getElementById('pdf-subtotal').textContent = `$${paymentData.amount || '0.00'}`;
+
+            const subscriptionTitle = paymentData.subscription?.title || 'Subscription Plan';
+            const amount = parseFloat(paymentData.amount || 0).toFixed(2);
+
+            document.getElementById('pdf-description').textContent = subscriptionTitle;
+            document.getElementById('pdf-unit-price').textContent = `$${amount}`;
+            document.getElementById('pdf-total-amount').textContent = `$${amount}`;
+            document.getElementById('pdf-subtotal').textContent = `$${amount}`;
             document.getElementById('pdf-tax').textContent = '$0.00';
-            document.getElementById('pdf-grand-total').textContent = `$${paymentData.amount || '0.00'}`;
+            document.getElementById('pdf-grand-total').textContent = `$${amount}`;
             document.getElementById('invoice-date').textContent = formattedDate;
         }
 
@@ -349,25 +390,22 @@
 
             updateInvoiceTemplate();
             const invoiceElement = document.getElementById('invoice-template');
-            const originalDisplay = invoiceElement.style.display;
-
-            // Show the invoice template
             invoiceElement.classList.remove('hidden');
 
-            // Print
-            window.print();
-
-            // Hide again
-            invoiceElement.classList.add('hidden');
+            setTimeout(() => {
+                window.print();
+                invoiceElement.classList.add('hidden');
+            }, 100);
         }
 
         // Toast notification
         function showToast(message, type = 'info') {
             const toast = document.createElement('div');
-            toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white ${type === 'success' ? 'bg-green-500' :
-                type === 'error' ? 'bg-red-500' : 'bg-blue-500'
-                } z-50`;
-            toast.textContent = message;
+            const bgColor = type === 'success' ? 'bg-green-500' :
+                type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+
+            toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white ${bgColor} z-50`;
+            toast.innerHTML = `<i class="fas fa-info-circle mr-2"></i>${message}`;
             document.body.appendChild(toast);
 
             setTimeout(() => {
@@ -379,7 +417,6 @@
             const confetti = document.getElementById('confetti');
             confetti.classList.remove('hidden');
 
-            // Simple confetti effect
             for (let i = 0; i < 100; i++) {
                 setTimeout(() => {
                     const confettiPiece = document.createElement('div');
@@ -390,22 +427,23 @@
                     confettiPiece.style.animation = `fall ${Math.random() * 3 + 2}s linear forwards`;
                     confetti.appendChild(confettiPiece);
 
-                    // Remove after animation
                     setTimeout(() => confettiPiece.remove(), 5000);
                 }, i * 30);
             }
 
-            // Add CSS for falling animation
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes fall {
-                    to {
-                        transform: translateY(100vh) rotate(360deg);
-                        opacity: 0;
-                    }
+            if (!document.getElementById('confetti-style')) {
+                const style = document.createElement('style');
+                style.id = 'confetti-style';
+                style.textContent = `
+            @keyframes fall {
+                to {
+                    transform: translateY(100vh) rotate(360deg);
+                    opacity: 0;
                 }
-            `;
-            document.head.appendChild(style);
+            }
+        `;
+                document.head.appendChild(style);
+            }
         }
 
         function getRandomColor() {
@@ -417,29 +455,16 @@
             window.location.href = 'https://www.ajaxxdatascrubber.com/dashboard';
         }
 
-        // Start verification when page loads
-        document.addEventListener('DOMContentLoaded', verifyPayment);
+        function goToPricing() {
+            window.location.href = 'https://www.ajaxxdatascrubber.com/pricing';
+        }
 
-        // Add print styles
-        const printStyle = document.createElement('style');
-        printStyle.textContent = `
-            @media print {
-                body * {
-                    visibility: hidden;
-                }
-                #invoice-template, #invoice-template * {
-                    visibility: visible;
-                }
-                #invoice-template {
-                    position: absolute;
-                    left: 0;
-                    top: 0;
-                    width: 100%;
-                    box-shadow: none;
-                }
-            }
-        `;
-        document.head.appendChild(printStyle);
+        // Start verification when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 Page loaded, starting verification...');
+            console.log('🌐 Current URL:', window.location.href);
+            verifyPayment();
+        });
     </script>
 </body>
 
