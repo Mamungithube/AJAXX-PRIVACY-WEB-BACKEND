@@ -82,4 +82,8 @@ htmlcov/
 .coverage
 .coverage.*
 coverage.xml
+<<<<<<< HEAD
 *.cover
+=======
+*.cover
+>>>>>>> a6966b116ad2f240801fd818621e3fa5c92b1435
