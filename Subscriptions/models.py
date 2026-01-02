@@ -7,7 +7,7 @@ User = get_user_model()
 
 class Feature(models.Model):
     """Subscription Feature Model"""
-    description = models.TextField()  # unique constraint নেই
+    description = models.TextField()
 
     class Meta:
         db_table = 'features'
@@ -28,6 +28,13 @@ class Subscription(models.Model):
     features = models.ManyToManyField(Feature, related_name='subscriptions')
     price = models.DecimalField(max_digits=10, decimal_places=2)
     billing_cycle = models.CharField(max_length=20, choices=BILLING_CYCLE_CHOICES)
+    
+    # ✅ নতুন field যোগ করা হয়েছে
+    stripe_price_id = models.CharField(max_length=100, blank=True, null=True, 
+                                       help_text="Stripe Price ID for this subscription")
+    stripe_product_id = models.CharField(max_length=100, blank=True, null=True,
+                                         help_text="Stripe Product ID")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -52,6 +59,11 @@ class Payment(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     transaction_id = models.CharField(max_length=255, unique=True)
     invoice_id = models.CharField(max_length=255, blank=True, null=True)
+    
+    # ✅ নতুন field যোগ করা হয়েছে
+    stripe_subscription_id = models.CharField(max_length=255, blank=True, null=True,
+                                             help_text="Stripe Subscription ID for recurring payments")
+    
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     payment_date = models.DateTimeField(auto_now_add=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -64,6 +76,7 @@ class Payment(models.Model):
             models.Index(fields=['transaction_id']),
             models.Index(fields=['status']),
             models.Index(fields=['payment_date']),
+            models.Index(fields=['stripe_subscription_id']),  # নতুন index
         ]
     
     def __str__(self):
@@ -72,7 +85,7 @@ class Payment(models.Model):
     @staticmethod
     def generate_invoice_id():
         """Generate unique invoice ID"""
-        return f"INV-{uuid.uuid4()}"
+        return f"INV-{uuid.uuid4().hex[:12].upper()}"
 
 
 class UserSubscription(models.Model):
@@ -81,6 +94,7 @@ class UserSubscription(models.Model):
         ('active', 'Active'),
         ('expired', 'Expired'),
         ('cancelled', 'Cancelled'),
+        ('payment_failed', 'Payment Failed'),  # নতুন status
     ]
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='active_subscription')
@@ -93,6 +107,30 @@ class UserSubscription(models.Model):
     
     class Meta:
         db_table = 'user_subscriptions'
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['expires_at']),
+        ]
     
     def __str__(self):
         return f"{self.user.email} - {self.plan.title}"
+    
+    @property
+    def is_expired(self):
+        """Check if subscription is expired"""
+        from django.utils import timezone
+        return self.expires_at < timezone.now()
+    
+    def renew(self, months=None, years=None):
+        """Renew subscription"""
+        from django.utils import timezone
+        from dateutil.relativedelta import relativedelta
+        
+        now = timezone.now()
+        if months:
+            self.expires_at = now + relativedelta(months=months)
+        elif years:
+            self.expires_at = now + relativedelta(years=years)
+        
+        self.status = 'active'
+        self.save()
