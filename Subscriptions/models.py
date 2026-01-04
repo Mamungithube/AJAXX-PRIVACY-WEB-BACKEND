@@ -92,9 +92,11 @@ class UserSubscription(models.Model):
     """User's Active Subscription"""
     STATUS_CHOICES = [
         ('active', 'Active'),
+        ('cancelling', 'Cancelling (Will end at period)'),
         ('expired', 'Expired'),
         ('cancelled', 'Cancelled'),
         ('payment_failed', 'Payment Failed'),  # নতুন status
+        ('payment_retrying', 'Payment Retrying'),
     ]
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='active_subscription')
@@ -134,3 +136,21 @@ class UserSubscription(models.Model):
         
         self.status = 'active'
         self.save()
+
+
+    @property
+    def is_active(self):
+        """Check if subscription is currently active (including cancelling)"""
+        from django.utils import timezone
+        return (
+            self.status in ['active', 'cancelling'] and 
+            self.expires_at > timezone.now()
+        )
+    
+    @property
+    def days_remaining(self):
+        """Calculate days remaining"""
+        from django.utils import timezone
+        if self.expires_at > timezone.now():
+            return (self.expires_at - timezone.now()).days
+        return 0

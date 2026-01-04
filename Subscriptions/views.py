@@ -25,7 +25,350 @@ from .utils import send_payment_email
 logger = logging.getLogger(__name__)
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
-# views.py তে এই function টা যোগ করুন (PaymentViewSet এর বাইরে)
+
+# ==================== SUBSCRIPTION CANCELLATION API ====================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def cancel_user_subscription(request):
+    """
+    🚫 USER SUBSCRIPTION CANCEL API
+    
+    POST /api/subscription/cancel/
+    Body: {
+        "cancel_immediately": false  // optional, default false
+    }
+    
+    Response: {
+        "success": true,
+        "message": "Subscription will be cancelled on March 15, 2026",
+        "data": {
+            "status": "cancelling",
+            "expires_at": "2026-03-15T10:30:00Z",
+            "cancel_at_period_end": true
+        }
+    }
+    """
+    logger.info(f"🚫 User {request.user.id} requesting subscription cancellation")
+    
+    try:
+        # Get user's active subscription
+        user_subscription = UserSubscription.objects.get(
+            user=request.user,
+            status='active'
+        )
+        
+        if not user_subscription.plan:
+            return Response({
+                'success': False,
+                'message': 'No active subscription plan found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get the latest payment with stripe subscription ID
+        payment = Payment.objects.filter(
+            user=request.user,
+            stripe_subscription_id__isnull=False
+        ).order_by('-created_at').first()
+        
+        if not payment or not payment.stripe_subscription_id:
+            return Response({
+                'success': False,
+                'message': 'No active Stripe subscription found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get cancellation type from request
+        cancel_immediately = request.data.get('cancel_immediately', False)
+        
+        try:
+            # Cancel subscription in Stripe
+            stripe_subscription = stripe.Subscription.modify(
+                payment.stripe_subscription_id,
+                cancel_at_period_end=not cancel_immediately
+            )
+            
+            if cancel_immediately:
+                # Cancel now - revoke access immediately
+                user_subscription.status = 'cancelled'
+                user_subscription.save()
+                
+                message = 'Subscription cancelled immediately'
+                logger.info(f"✅ Subscription {payment.stripe_subscription_id} cancelled immediately")
+            else:
+                # Cancel at period end - keep access until expiry
+                user_subscription.status = 'cancelling'
+                user_subscription.save()
+                
+                expiry_date = user_subscription.expires_at.strftime("%B %d, %Y")
+                message = f'Subscription will be cancelled on {expiry_date}'
+                logger.info(f"✅ Subscription {payment.stripe_subscription_id} set to cancel at period end")
+            
+            return Response({
+                'success': True,
+                'message': message,
+                'data': {
+                    'status': user_subscription.status,
+                    'expires_at': user_subscription.expires_at,
+                    'cancel_at_period_end': stripe_subscription.cancel_at_period_end
+                }
+            })
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"❌ Stripe error while cancelling: {str(e)}")
+            return Response({
+                'success': False,
+                'message': f'Failed to cancel subscription: {str(e)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+    except UserSubscription.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': 'No active subscription found'
+        }, status=status.HTTP_404_NOT_FOUND)
+        
+    except Exception as e:
+        logger.error(f"❌ Error cancelling subscription: {str(e)}", exc_info=True)
+        return Response({
+            'success': False,
+            'message': 'Internal server error',
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ==================== SUBSCRIPTION REACTIVATION API ====================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def reactivate_user_subscription(request):
+    """
+    🔄 REACTIVATE CANCELLED SUBSCRIPTION API
+    
+    POST /api/subscription/reactivate/
+    
+    Response: {
+        "success": true,
+        "message": "Subscription reactivated successfully",
+        "data": {
+            "status": "active",
+            "expires_at": "2026-03-15T10:30:00Z"
+        }
+    }
+    """
+    logger.info(f"🔄 User {request.user.id} requesting subscription reactivation")
+    
+    try:
+        user_subscription = UserSubscription.objects.get(
+            user=request.user,
+            status='cancelling'  # Only reactivate if pending cancellation
+        )
+        
+        payment = Payment.objects.filter(
+            user=request.user,
+            stripe_subscription_id__isnull=False
+        ).order_by('-created_at').first()
+        
+        if not payment or not payment.stripe_subscription_id:
+            return Response({
+                'success': False,
+                'message': 'No Stripe subscription found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            # Remove cancellation in Stripe
+            stripe_subscription = stripe.Subscription.modify(
+                payment.stripe_subscription_id,
+                cancel_at_period_end=False
+            )
+            
+            # Reactivate in our database
+            user_subscription.status = 'active'
+            user_subscription.save()
+            
+            logger.info(f"✅ Subscription {payment.stripe_subscription_id} reactivated")
+            
+            return Response({
+                'success': True,
+                'message': 'Subscription reactivated successfully',
+                'data': {
+                    'status': user_subscription.status,
+                    'expires_at': user_subscription.expires_at
+                }
+            })
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"❌ Stripe error while reactivating: {str(e)}")
+            return Response({
+                'success': False,
+                'message': f'Failed to reactivate subscription: {str(e)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+    except UserSubscription.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': 'No pending cancellation found. Subscription must be in "cancelling" status.'
+        }, status=status.HTTP_404_NOT_FOUND)
+        
+    except Exception as e:
+        logger.error(f"❌ Error reactivating subscription: {str(e)}", exc_info=True)
+        return Response({
+            'success': False,
+            'message': 'Internal server error',
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ==================== WEBHOOK HANDLERS (IMPROVED) ====================
+
+def handle_invoice_paid(invoice):
+    """
+    ✅ IMPROVED: Handle successful invoice payment (auto-renewal)
+    """
+    try:
+        logger.info(f"💳 Processing paid invoice: {invoice['id']}")
+        
+        subscription_id = invoice.get('subscription')
+        if not subscription_id:
+            logger.warning("⚠️ No subscription ID in invoice")
+            return
+        
+        # Find payment by stripe subscription ID
+        payment = Payment.objects.filter(
+            stripe_subscription_id=subscription_id
+        ).order_by('-created_at').first()
+        
+        if not payment:
+            logger.warning(f"⚠️ No payment found for subscription: {subscription_id}")
+            return
+        
+        # Get user subscription
+        user_subscription = UserSubscription.objects.filter(
+            user_id=payment.user_id
+        ).first()
+        
+        if not user_subscription:
+            logger.warning(f"⚠️ No user subscription found for user: {payment.user_id}")
+            return
+        
+        # Calculate new validity period (extend from current expiry)
+        if user_subscription.plan.billing_cycle == 'monthly':
+            valid_till = user_subscription.expires_at + relativedelta(months=1)
+        else:
+            valid_till = user_subscription.expires_at + relativedelta(years=1)
+        
+        # Update subscription
+        user_subscription.expires_at = valid_till
+        user_subscription.status = 'active'  # Reactivate if it was in different status
+        user_subscription.save()
+        
+        # Create new payment record for this renewal
+        now = timezone.now()
+        new_payment = Payment.objects.create(
+            user=payment.user,
+            subscription=payment.subscription,
+            stripe_subscription_id=subscription_id,
+            amount=invoice.get('amount_paid', 0) / 100,
+            transaction_id=invoice.get('payment_intent', f"pi_{invoice['id']}"),
+            invoice_id=invoice['id'],
+            status='succeeded',
+            payment_date=now
+        )
+        
+        logger.info(f"✅ AUTO-RENEWAL SUCCESS: Subscription renewed until {valid_till}")
+        logger.info(f"💰 New payment created: {new_payment.id}")
+        
+        # Send renewal confirmation email
+        try:
+            send_payment_email(
+                email=payment.user.email,
+                amount=new_payment.amount,
+                transaction_id=new_payment.transaction_id,
+                invoice_id=new_payment.invoice_id,
+                payment_status='succeeded'
+            )
+            logger.info(f"📧 Renewal email sent to: {payment.user.email}")
+        except Exception as e:
+            logger.warning(f"⚠️ Email sending failed: {e}")
+            
+    except Exception as e:
+        logger.error(f"❌ Error in handle_invoice_paid: {str(e)}", exc_info=True)
+
+
+def handle_invoice_failed(invoice):
+    """
+    ❌ IMPROVED: Handle failed invoice payment with retry logic
+    """
+    try:
+        logger.info(f"❌ Processing failed invoice: {invoice['id']}")
+        
+        subscription_id = invoice.get('subscription')
+        if not subscription_id:
+            return
+        
+        payment = Payment.objects.filter(
+            stripe_subscription_id=subscription_id
+        ).order_by('-created_at').first()
+        
+        if not payment:
+            return
+        
+        user_subscription = UserSubscription.objects.filter(
+            user_id=payment.user_id
+        ).first()
+        
+        if user_subscription:
+            # Check retry count from invoice
+            attempt_count = invoice.get('attempt_count', 1)
+            
+            if attempt_count >= 3:  # After 3 failed attempts
+                user_subscription.status = 'payment_failed'
+                logger.warning(f"⚠️ Payment failed after {attempt_count} attempts - marking as failed")
+            else:
+                user_subscription.status = 'payment_retrying'
+                logger.info(f"🔄 Payment retry {attempt_count}/3")
+            
+            user_subscription.save()
+            
+            # TODO: Send payment failure email to user
+            logger.info(f"📧 Should send payment failure notification to: {payment.user.email}")
+            
+    except Exception as e:
+        logger.error(f"❌ Error in handle_invoice_failed: {str(e)}", exc_info=True)
+
+
+def handle_subscription_cancelled(subscription):
+    """
+    🚫 IMPROVED: Handle subscription cancellation
+    """
+    try:
+        logger.info(f"🚫 Processing cancelled subscription: {subscription['id']}")
+        
+        stripe_subscription_id = subscription['id']
+        
+        payment = Payment.objects.filter(
+            stripe_subscription_id=stripe_subscription_id
+        ).order_by('-created_at').first()
+        
+        if not payment:
+            return
+        
+        user_subscription = UserSubscription.objects.filter(
+            user_id=payment.user_id
+        ).first()
+        
+        if user_subscription:
+            # Set status to cancelled
+            user_subscription.status = 'cancelled'
+            user_subscription.save()
+            
+            logger.info(f"✅ Subscription cancelled for user: {payment.user_id}")
+            
+            # TODO: Send cancellation confirmation email
+            logger.info(f"📧 Should send cancellation email to: {payment.user.email}")
+            
+    except Exception as e:
+        logger.error(f"❌ Error in handle_subscription_cancelled: {str(e)}", exc_info=True)
+
+
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -817,110 +1160,6 @@ def handle_checkout_session_completed(session):
         logger.error(
             f"❌ Error in handle_checkout_session_completed: {str(e)}", exc_info=True)
 
-
-def handle_invoice_paid(invoice):
-    """Handle successful invoice payment (for recurring subscriptions)"""
-    try:
-        logger.info(f"💳 Processing paid invoice: {invoice['id']}")
-
-        subscription_id = invoice.get('subscription')
-
-        if not subscription_id:
-            logger.warning("⚠️ No subscription ID in invoice")
-            return
-
-        # Find the payment record by stripe subscription ID
-        payment = Payment.objects.filter(
-            stripe_subscription_id=subscription_id).order_by('-created_at').first()
-
-        if payment:
-            # Update user subscription validity
-            user_subscription = UserSubscription.objects.filter(
-                user_id=payment.user_id).first()
-
-            if user_subscription:
-                now = timezone.now()
-                if user_subscription.plan.billing_cycle == 'monthly':
-                    valid_till = now + relativedelta(months=1)
-                else:
-                    valid_till = now + relativedelta(years=1)
-
-                user_subscription.expires_at = valid_till
-                user_subscription.status = 'active'
-                user_subscription.save()
-
-                # Create new payment record for this renewal
-                Payment.objects.create(
-                    user=payment.user,
-                    subscription=payment.subscription,
-                    stripe_subscription_id=subscription_id,
-                    amount=invoice.get('amount_paid', 0) / 100,
-                    transaction_id=invoice.get(
-                        'payment_intent', f"pi_{invoice['id']}"),
-                    invoice_id=invoice['id'],
-                    status='succeeded',
-                    payment_date=now
-                )
-
-                logger.info(f"✅ Subscription renewed until: {valid_till}")
-
-    except Exception as e:
-        logger.error(
-            f"❌ Error in handle_invoice_paid: {str(e)}", exc_info=True)
-
-
-def handle_invoice_failed(invoice):
-    """Handle failed invoice payment"""
-    try:
-        logger.info(f"❌ Processing failed invoice: {invoice['id']}")
-
-        subscription_id = invoice.get('subscription')
-
-        if subscription_id:
-            payment = Payment.objects.filter(
-                stripe_subscription_id=subscription_id).order_by('-created_at').first()
-
-            if payment:
-                # Update user subscription status
-                user_subscription = UserSubscription.objects.filter(
-                    user_id=payment.user_id).first()
-
-                if user_subscription:
-                    user_subscription.status = 'payment_failed'
-                    user_subscription.save()
-
-                    logger.info(
-                        f"⚠️ Subscription marked as payment failed for user: {payment.user_id}")
-
-    except Exception as e:
-        logger.error(
-            f"❌ Error in handle_invoice_failed: {str(e)}", exc_info=True)
-
-
-def handle_subscription_cancelled(subscription):
-    """Handle subscription cancellation"""
-    try:
-        logger.info(
-            f"🚫 Processing cancelled subscription: {subscription['id']}")
-
-        stripe_subscription_id = subscription['id']
-
-        # Find payment with this subscription ID
-        payment = Payment.objects.filter(
-            stripe_subscription_id=stripe_subscription_id).order_by('-created_at').first()
-
-        if payment:
-            # Update user subscription status
-            user_subscription = UserSubscription.objects.filter(
-                user_id=payment.user_id).first()
-
-            if user_subscription:
-                user_subscription.status = 'cancelled'
-                user_subscription.save()
-
-                logger.info(
-                    f"✅ Subscription cancelled for user: {payment.user_id}")
-
-    except Exception as e:
-        logger.error(
-            f"❌ Error in handle_subscription_cancelled: {str(e)}", exc_info=True)
+# Removed duplicate webhook handler implementations.
+# The single improved handlers (`handle_invoice_paid`, `handle_invoice_failed`,
+# and `handle_subscription_cancelled`) are declared earlier in this file.
