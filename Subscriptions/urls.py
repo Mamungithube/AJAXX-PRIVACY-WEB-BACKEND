@@ -8,7 +8,8 @@ from .views import (SubscriptionViewSet,
                     payment_success_page, 
                     payment_failed_page,
                     verify_payment_public,
-                    create_checkout_session
+                    create_checkout_session,
+                    get_current_subscription
 )
 # Router automatically creates standard REST endpoints
 router = DefaultRouter()
@@ -24,10 +25,12 @@ urlpatterns = [
     path('success/', payment_success_page, name='payment-success'),
     path('failed/', payment_failed_page, name='payment-failed'),
     path('create-checkout-session/', create_checkout_session, name='create-checkout-session'),
+    path('current-subscription/', get_current_subscription, name='current-subscription'),
 
     path('cancel-subscription/', cancel_user_subscription, name='cancel-subscription'),
     path('reactivate-subscription/', reactivate_user_subscription, name='reactivate-subscription')
 ]
+
 # Router automatically generates these endpoints:
 # 
 # SUBSCRIPTIONS:

@@ -27,80 +27,103 @@ logger = logging.getLogger(__name__)
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 # ==================== SUBSCRIPTION CANCELLATION API ====================
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_current_subscription(request):
+    """
+    Retrieves the authenticated user's current active OR cancelling subscription plan
+    """
+    user = request.user
+    now = timezone.now()
+
+    try:
+        user_subscription = UserSubscription.objects.filter(
+            user=user, 
+            status__in=['active', 'cancelling']
+        ).first()
+
+        if not user_subscription:
+            raise UserSubscription.DoesNotExist
+
+
+        if user_subscription.expires_at < now:
+            logger.warning(f"⚠️ Subscription {user_subscription.id} expired.")
+            user_subscription.status = 'expired'
+            user_subscription.save()
+            raise UserSubscription.DoesNotExist
+
+
+        subscription = user_subscription.plan
+        plan_data = SubscriptionSerializer(subscription).data
+        optery_uuid = getattr(settings, 'OPTERY_INTEGRATION_UUID', '8f48c726-728b-49cc-88fe-a8e3425f0594')
+
+        return Response({
+            'success': True,
+            'message': 'Current subscription fetched successfully',
+            'data': {
+                'plan': plan_data,
+                'starts_at': user_subscription.starts_at,
+                'expires_at': user_subscription.expires_at,
+                'is_active': True if user_subscription.status in ['active', 'cancelling'] else False,
+                'auto_renew': True if user_subscription.status == 'active' else False,
+                # 'plan_uuid': optery_uuid
+            }
+        })
+
+    except UserSubscription.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': 'No active or pending cancellation subscription found',
+            'data': None
+        }, status=status.HTTP_404_NOT_FOUND)
+
+# ==================== SUBSCRIPTION CANCELLATION API (AUTO-PAY OFF) ====================
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def cancel_user_subscription(request):
-    """
-    🚫 USER SUBSCRIPTION CANCEL API
+    user = request.user
+    logger.info(f"🚫 User {user.id} requesting auto-payment cancellation")
     
-    POST /api/subscription/cancel/
-    Body: {
-        "cancel_immediately": false  // optional, default false
-    }
-    
-    Response: {
-        "success": true,
-        "message": "Subscription will be cancelled on March 15, 2026",
-        "data": {
-            "status": "cancelling",
-            "expires_at": "2026-03-15T10:30:00Z",
-            "cancel_at_period_end": true
-        }
-    }
-    """
-    logger.info(f"🚫 User {request.user.id} requesting subscription cancellation")
-    
+    # প্যারামিটার থেকে চেক করা (যদি ভবিষ্যতে সাথে সাথে ক্যানসেল করার ফিচার লাগে)
+    cancel_immediately = request.data.get('cancel_immediately', False)
+
     try:
-        # Get user's active subscription
+
         user_subscription = UserSubscription.objects.get(
-            user=request.user,
+            user=user,
             status='active'
         )
-        
-        if not user_subscription.plan:
-            return Response({
-                'success': False,
-                'message': 'No active subscription plan found'
-            }, status=status.HTTP_404_NOT_FOUND)
-        
-        # Get the latest payment with stripe subscription ID
+
         payment = Payment.objects.filter(
-            user=request.user,
+            user=user,
             stripe_subscription_id__isnull=False
         ).order_by('-created_at').first()
         
         if not payment or not payment.stripe_subscription_id:
             return Response({
                 'success': False,
-                'message': 'No active Stripe subscription found'
+                'message': 'No active Stripe subscription found for this user.'
             }, status=status.HTTP_404_NOT_FOUND)
         
-        # Get cancellation type from request
-        cancel_immediately = request.data.get('cancel_immediately', False)
-        
         try:
-            # Cancel subscription in Stripe
+
             stripe_subscription = stripe.Subscription.modify(
                 payment.stripe_subscription_id,
                 cancel_at_period_end=not cancel_immediately
             )
             
             if cancel_immediately:
-                # Cancel now - revoke access immediately
                 user_subscription.status = 'cancelled'
-                user_subscription.save()
-                
-                message = 'Subscription cancelled immediately'
-                logger.info(f"✅ Subscription {payment.stripe_subscription_id} cancelled immediately")
+                message = 'Subscription cancelled immediately. Access revoked.'
             else:
-                # Cancel at period end - keep access until expiry
                 user_subscription.status = 'cancelling'
-                user_subscription.save()
-                
                 expiry_date = user_subscription.expires_at.strftime("%B %d, %Y")
-                message = f'Subscription will be cancelled on {expiry_date}'
-                logger.info(f"✅ Subscription {payment.stripe_subscription_id} set to cancel at period end")
+                message = f'Auto-renewal turned off. Access remains valid until {expiry_date}.'
+            
+            user_subscription.save()
+            
+            logger.info(f"✅ Subscription {payment.stripe_subscription_id} updated: {message}")
             
             return Response({
                 'success': True,
@@ -113,107 +136,92 @@ def cancel_user_subscription(request):
             })
             
         except stripe.error.StripeError as e:
-            logger.error(f"❌ Stripe error while cancelling: {str(e)}")
+            logger.error(f"❌ Stripe API Error: {str(e)}")
             return Response({
                 'success': False,
-                'message': f'Failed to cancel subscription: {str(e)}'
+                'message': f'Stripe operation failed: {str(e)}'
             }, status=status.HTTP_400_BAD_REQUEST)
             
     except UserSubscription.DoesNotExist:
         return Response({
             'success': False,
-            'message': 'No active subscription found'
+            'message': 'No active subscription record found to cancel.'
         }, status=status.HTTP_404_NOT_FOUND)
         
     except Exception as e:
-        logger.error(f"❌ Error cancelling subscription: {str(e)}", exc_info=True)
+        logger.error(f"❌ Unexpected Error: {str(e)}", exc_info=True)
         return Response({
             'success': False,
             'message': 'Internal server error',
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 # ==================== SUBSCRIPTION REACTIVATION API ====================
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def reactivate_user_subscription(request):
-    """
-    🔄 REACTIVATE CANCELLED SUBSCRIPTION API
-    
-    POST /api/subscription/reactivate/
-    
-    Response: {
-        "success": true,
-        "message": "Subscription reactivated successfully",
-        "data": {
-            "status": "active",
-            "expires_at": "2026-03-15T10:30:00Z"
-        }
-    }
-    """
-    logger.info(f"🔄 User {request.user.id} requesting subscription reactivation")
+    user = request.user
     
     try:
-        user_subscription = UserSubscription.objects.get(
-            user=request.user,
-            status='cancelling'  # Only reactivate if pending cancellation
-        )
+        # স্ট্যাটাস শুধুমাত্র 'cancelling' না রেখে 'active' ও চেক করা ভালো 
+        # অথবা শুধু ইউজার দিয়ে গেট করে পরে লজিক চেক করুন
+        user_subscription = UserSubscription.objects.filter(user=user).first()
         
+        if not user_subscription:
+            return Response({
+                'success': False,
+                'message': 'No subscription record found for this user'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # যদি অলরেডি একটিভ থাকে, তবে রিঅ্যাক্টিভেট করার দরকার নেই
+        if user_subscription.status == 'active':
+            return Response({
+                'success': True,
+                'message': 'Subscription is already active',
+                'data': {'status': 'active'}
+            })
+
+        # শুধুমাত্র 'cancelling' স্ট্যাটাস থাকলেই রিঅ্যাক্টিভেট করার অনুমতি দিন
+        if user_subscription.status != 'cancelling':
+            return Response({
+                'success': False,
+                'message': f'Subscription cannot be reactivated from {user_subscription.status} status.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # পেমেন্ট রেকর্ড চেক
         payment = Payment.objects.filter(
-            user=request.user,
+            user=user,
             stripe_subscription_id__isnull=False
         ).order_by('-created_at').first()
         
-        if not payment or not payment.stripe_subscription_id:
+        if not payment:
             return Response({
                 'success': False,
-                'message': 'No Stripe subscription found'
+                'message': 'No Stripe subscription ID found in payment history'
             }, status=status.HTTP_404_NOT_FOUND)
+
+        # Stripe-এ আপডেট করা
+        stripe.Subscription.modify(
+            payment.stripe_subscription_id,
+            cancel_at_period_end=False
+        )
         
-        try:
-            # Remove cancellation in Stripe
-            stripe_subscription = stripe.Subscription.modify(
-                payment.stripe_subscription_id,
-                cancel_at_period_end=False
-            )
-            
-            # Reactivate in our database
-            user_subscription.status = 'active'
-            user_subscription.save()
-            
-            logger.info(f"✅ Subscription {payment.stripe_subscription_id} reactivated")
-            
-            return Response({
-                'success': True,
-                'message': 'Subscription reactivated successfully',
-                'data': {
-                    'status': user_subscription.status,
-                    'expires_at': user_subscription.expires_at
-                }
-            })
-            
-        except stripe.error.StripeError as e:
-            logger.error(f"❌ Stripe error while reactivating: {str(e)}")
-            return Response({
-                'success': False,
-                'message': f'Failed to reactivate subscription: {str(e)}'
-            }, status=status.HTTP_400_BAD_REQUEST)
-            
-    except UserSubscription.DoesNotExist:
+        # ডাটাবেজ আপডেট
+        user_subscription.status = 'active'
+        user_subscription.save()
+        
         return Response({
-            'success': False,
-            'message': 'No pending cancellation found. Subscription must be in "cancelling" status.'
-        }, status=status.HTTP_404_NOT_FOUND)
-        
+            'success': True,
+            'message': 'Subscription reactivated successfully',
+            'data': {
+                'status': user_subscription.status,
+                'expires_at': user_subscription.expires_at
+            }
+        })
+
     except Exception as e:
-        logger.error(f"❌ Error reactivating subscription: {str(e)}", exc_info=True)
-        return Response({
-            'success': False,
-            'message': 'Internal server error',
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'success': False, 'error': str(e)}, status=500)
 
 
 # ==================== WEBHOOK HANDLERS (IMPROVED) ====================
@@ -938,69 +946,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 'trend': 'up' if growth_percentage >= 0 else 'down'
             }
         })
-
-    @action(detail=False, methods=['get'], url_path='current-subscription')
-    def current_subscription(self, request):
-        """
-        Retrieves the authenticated user's current active subscription plan
-        """
-        user = request.user
-        now = timezone.now()
-
-        try:
-            # Get the user's active subscription record
-            user_subscription = UserSubscription.objects.get(
-                user=user,
-                status='active'
-            )
-
-            # Check if subscription has expired
-            if user_subscription.expires_at < now:
-                logger.warning(
-                    f"⚠️ Subscription {user_subscription.id} has expired. Updating status to 'expired'.")
-                user_subscription.status = 'expired'
-                user_subscription.save()
-                raise UserSubscription.DoesNotExist
-
-            # Get the subscription plan details
-            subscription = user_subscription.plan
-            plan_data = SubscriptionSerializer(subscription).data
-
-            # Get the Optery UUID from settings
-            optery_uuid = getattr(
-                settings, 'OPTERY_INTEGRATION_UUID', '8f48c726-728b-49cc-88fe-a8e3425f0594')
-
-            # Construct the final response data
-            response_data = {
-                'plan': plan_data,
-                'starts_at': user_subscription.starts_at,
-                'expires_at': user_subscription.expires_at,
-                'status': user_subscription.status,
-                'plan_uuid': optery_uuid
-            }
-
-            return Response({
-                'success': True,
-                'message': 'Current active subscription fetched successfully',
-                'data': response_data
-            })
-
-        except UserSubscription.DoesNotExist:
-            return Response({
-                'success': False,
-                'message': 'No active subscription found for this user',
-                'data': None
-            }, status=status.HTTP_404_NOT_FOUND)
-
-        except Exception as e:
-            logger.error(
-                f"Error fetching current subscription for user {user.id}: {str(e)}", exc_info=True)
-            return Response({
-                'success': False,
-                'message': 'Internal server error while fetching subscription',
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 # ======================== WEBHOOK HANDLERS ========================
 

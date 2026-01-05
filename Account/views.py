@@ -339,7 +339,7 @@ class TotalUserCountView(APIView):
 """ ----------------Account Delete view------------------- """
 
 class AdminDeleteUserView(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request, user_id):
         try:
