@@ -66,7 +66,7 @@ def get_current_subscription(request):
                 'expires_at': user_subscription.expires_at,
                 'is_active': True if user_subscription.status in ['active', 'cancelling'] else False,
                 'auto_renew': True if user_subscription.status == 'active' else False,
-                # 'plan_uuid': optery_uuid
+                'plan_uuid': optery_uuid
             }
         })
 
