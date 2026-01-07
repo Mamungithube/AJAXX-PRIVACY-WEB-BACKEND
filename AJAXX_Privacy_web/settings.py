@@ -242,7 +242,7 @@ STRIPE_WEBHOOK_SECRET = env('stripe_webhook_secret')
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
  
  
-OPTERY_INTEGRATION_UUID = '8f48c726-728b-49cc-88fe-a8e3425f0594'
+OPTERY_INTEGRATION_UUID = env('OPTERY_INTEGRATION_UUID')
  
 # Optery API Configuration
 OPTERY_BASE_URL = os.getenv('OPTERY_BASE_URL')

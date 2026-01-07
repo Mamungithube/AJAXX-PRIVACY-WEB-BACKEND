@@ -61,49 +61,6 @@ def validate_required_fields(data, required_fields):
 
 
 
-# import requests
-# from rest_framework.views import APIView
-# from rest_framework.response import Response
-# from rest_framework import status
-# from .serializers import OpteryMemberSerializer
-
-# OPTERY_API_URL = "https://public-api-sandbox.test.optery.com/v1/members"
-# OPTERY_API_KEY = "sk_test-05e961d873bf4624beec91b2a7f93831bf7130e510eb4b6a85781787d627f86c"
-
-# @method_decorator(csrf_exempt, name='dispatch')
-# class CreateOpteryMember(APIView):
-
-#     def post(self, request):
-#         serializer = OpteryMemberSerializer(data=request.data)
-
-#         if not serializer.is_valid():
-#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#         # Prepare request for Optery
-#         headers = {
-#             "Content-Type": "application/json",
-#             "Accept": "application/json",
-#             "Authorization": f"Bearer {OPTERY_API_KEY}"
-#         }
-
-#         try:
-#             optery_response = requests.post(
-#                 OPTERY_API_URL,
-#                 headers=headers,
-#                 json=serializer.validated_data,
-#                 timeout=10
-#             )
-
-#             return Response({
-#                 "status_code": optery_response.status_code,
-#                 "data": optery_response.json()
-#             }, status=optery_response.status_code)
-
-#         except Exception as e:
-#             return Response(
-#                 {"error": str(e)},
-#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
-#             )
 
 
 """--------------------Views for Optery API integration--------------------"""
@@ -300,7 +257,7 @@ class OpteryCombinedView(APIView):
 
             return Response({
                 "member_uuid": member_uuid,
-                "email": email if email else "Not provided",  # রেসপন্সে যোগ করুন
+                "email": email if email else "Not provided", 
                 "scans": scan_res,
                 "screenshots": screenshots,
                 "message": "Data fetched successfully"

@@ -55,7 +55,7 @@ def get_current_subscription(request):
 
         subscription = user_subscription.plan
         plan_data = SubscriptionSerializer(subscription).data
-        optery_uuid = getattr(settings, 'OPTERY_INTEGRATION_UUID', '8f48c726-728b-49cc-88fe-a8e3425f0594')
+        optery_uuid = getattr(settings, 'OPTERY_INTEGRATION_UUID')
 
         return Response({
             'success': True,
