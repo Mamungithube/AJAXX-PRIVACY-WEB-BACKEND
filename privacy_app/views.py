@@ -136,7 +136,8 @@ class CreateOpteryMember(APIView):
             return Response({
                 "success": is_success,
                 "status_code": optery_response.status_code,
-                "optery_response": response_data
+                "optery_response": response_data,
+                "data":response_data
             }, status=optery_response.status_code)
 
         except Exception as e:
