@@ -63,13 +63,17 @@ DEBUG = True
  
 ALLOWED_HOSTS = [
     'backend.ajaxxdatascrubber.com',
-    'https://www.ajaxxdatascrubber.com',
+    'www.ajaxxdatascrubber.com',
+    'ajaxxdatascrubber.com',
     '74.208.158.27',
     'localhost',
     '127.0.0.1',
     '10.10.10.46',
 ]
- 
+
+CSRF_COOKIE_DOMAIN = '.ajaxxdatascrubber.com'
+SESSION_COOKIE_DOMAIN = '.ajaxxdatascrubber.com'
+
 AUTH_USER_MODEL = "Account.User"
  
 # ==================== INSTALLED APPS ====================
