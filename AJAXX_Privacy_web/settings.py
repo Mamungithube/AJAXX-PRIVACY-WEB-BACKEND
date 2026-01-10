@@ -53,6 +53,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:3000',
     'http://10.10.10.46:8000',
     'https://backend.ajaxxdatascrubber.com',
+    'https://www.ajaxxdatascrubber.com',
 ]
  
 # ==================== SECRET KEY ====================
@@ -62,6 +63,7 @@ DEBUG = True
  
 ALLOWED_HOSTS = [
     'backend.ajaxxdatascrubber.com',
+    'https://www.ajaxxdatascrubber.com',
     '74.208.158.27',
     'localhost',
     '127.0.0.1',
