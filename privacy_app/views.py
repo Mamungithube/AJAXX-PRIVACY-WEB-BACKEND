@@ -1,32 +1,28 @@
 import os
 import json
 import logging
-from urllib import response
 from django.conf import settings
-from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from django.views import View
 from django.utils.decorators import method_decorator
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.decorators import api_view
 import requests
-from .models import OpteryScanHistory
+from celery.result import AsyncResult
+from .models import OpteryScanHistory, OpteryMember
+from .serializers import OpteryMemberSerializer
+from .tasks import fetch_optery_scans_background
 
 logger = logging.getLogger(__name__)
 
 
-"""--------------------Utility functions and classes for Optery API integration--------------------"""
-
-
-# Optery API Configuration
-OPTERY_BASE_URL = os.getenv('OPTERY_BASE_URL')
-OPTERY_API_KEY = os.getenv('OPTERY_API_TOKEN')
+"""--------------------Utility functions--------------------"""
 
 def get_optery_config():
     """Safely get Optery configuration from environment with validation"""
-    base_url = getattr(settings, 'OPTERY_BASE_URL', OPTERY_BASE_URL)
-    api_token = getattr(settings, 'OPTERY_API_KEY', OPTERY_API_KEY)
+    base_url = settings.OPTERY_BASE_URL
+    api_token = settings.OPTERY_API_KEY
     
     if not base_url or not api_token:
         logger.error("Optery configuration missing. Check environment variables.")
@@ -37,6 +33,7 @@ def get_optery_config():
         base_url += '/'
     
     return base_url, api_token
+
 
 def safe_json_parse(text, default=None):
     """Safely parse JSON with comprehensive error handling"""
@@ -52,6 +49,7 @@ def safe_json_parse(text, default=None):
         logger.error(f"Unexpected JSON parse error: {str(e)}")
         return default
 
+
 def validate_required_fields(data, required_fields):
     """Validate required fields in request data"""
     missing_fields = [field for field in required_fields if not data.get(field)]
@@ -60,14 +58,7 @@ def validate_required_fields(data, required_fields):
     return True
 
 
-
-
-
-"""--------------------Views for Optery API integration--------------------"""
-
-OPTERY_API_URL = getattr(settings, 'OPTERY_BASE_URL', os.getenv('OPTERY_BASE_URL'))
-OPTERY_API_KEY = getattr(settings, 'OPTERY_API_KEY', os.getenv('OPTERY_API_TOKEN'))
-
+"""--------------------Create Optery Member--------------------"""
 
 @method_decorator(csrf_exempt, name='dispatch')
 class CreateOpteryMember(APIView):
@@ -81,7 +72,9 @@ class CreateOpteryMember(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Check API configuration
-        if not OPTERY_API_URL or not OPTERY_API_KEY:
+        try:
+            optery_base, optery_token = get_optery_config()
+        except ValueError:
             return Response({
                 "success": False,
                 "error": "Service configuration error"
@@ -91,10 +84,10 @@ class CreateOpteryMember(APIView):
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Authorization": f"Bearer {OPTERY_API_KEY}"
+            "Authorization": f"Bearer {optery_token}"
         }
 
-        api_url = OPTERY_API_URL.rstrip('/') + '/v1/members'
+        api_url = optery_base.rstrip('/') + '/v1/members'
 
         try:
             # Call Optery API
@@ -102,7 +95,7 @@ class CreateOpteryMember(APIView):
                 api_url,
                 headers=headers,
                 json=serializer.validated_data,
-                timeout=10
+                timeout=30
             )
 
             response_data = optery_response.json()
@@ -137,144 +130,116 @@ class CreateOpteryMember(APIView):
                 "success": is_success,
                 "status_code": optery_response.status_code,
                 "optery_response": response_data,
-                "data":response_data
+                "data": response_data
             }, status=optery_response.status_code)
 
         except Exception as e:
+            logger.error(f"Create member error: {str(e)}", exc_info=True)
             return Response({
                 "success": False,
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-"""--------------------Optery Data Scan Views--------------------"""
+
+"""--------------------Optery Combined View with Background Task--------------------"""
 
 class OpteryCombinedView(APIView):
-    def get(self, request):
+    """
+    GET with task_id: Check task status and get result
+    POST: Start background task to fetch scans
+    """
+    
+    def post(self, request):
+        """Start background task - Returns task_id immediately"""
         try:
-            optery_base, optery_token = get_optery_config()
-            member_uuid = request.query_params.get("member_uuid")
-            email = request.query_params.get("email") 
+            member_uuid = request.data.get("member_uuid")
+            email = request.data.get("email")
+            
             if not member_uuid:
                 return Response({"error": "member_uuid is required"}, status=400)
 
-            # Email validation (optional but recommended)
-            if email:
-                # Basic email format validation
-                if "@" not in email or "." not in email:
-                    return Response({"error": "Invalid email format"}, status=400)
+            # Email validation
+            if email and ("@" not in email or "." not in email):
+                return Response({"error": "Invalid email format"}, status=400)
 
-            headers = {
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "Authorization": f"Bearer {optery_token}"
-            }
-
-            # STEP 1: Get scans
-            scan_url = f"{optery_base}v1/optouts/{member_uuid}/get-scans"
-            try:
-                scan_response = requests.get(scan_url, headers=headers)
-            except requests.exceptions.RequestException as e:
-                logger.error(f"Scan API request failed: {str(e)}")
-                return Response({
-                    "error": "Failed to connect to scan service",
-                    "member_uuid": member_uuid,
-                    "email": email if email else "Not provided"
-                }, status=503)
-
-            # Check HTTP status
-            if scan_response.status_code != 200:
-                logger.warning(f"Scan API returned status {scan_response.status_code}")
-                return Response({
-                    "error": f"Scan service returned error: {scan_response.status_code}",
-                    "details": scan_response.text[:200],
-                    "member_uuid": member_uuid,
-                    "email": email if email else "Not provided"
-                }, status=scan_response.status_code)
-                
-            scan_res = safe_json_parse(scan_response.text, {})
-
-            # Handle API error responses
-            if isinstance(scan_res, dict) and scan_res.get("error"):
-                return Response({
-                    "scan_api_error": scan_res.get("error"),
-                    "raw": scan_res,
-                    "member_uuid": member_uuid,
-                    "email": email if email else "Not provided"
-                }, status=400)
-                
-            if not isinstance(scan_res, list):
-                return Response({
-                    "scan_api_error": "Invalid scan response format",
-                    "received_type": type(scan_res).__name__,
-                    "member_uuid": member_uuid,
-                    "email": email if email else "Not provided"
-                }, status=400)
-
-            # Collect scan IDs safely
-            scan_ids = []
-            for item in scan_res:
-                if isinstance(item, dict) and item.get("scan_id"):
-                    scan_ids.append(str(item.get("scan_id")))
-
-            # If no scan IDs found
-            if not scan_ids:
-                return Response({
-                    "message": "No scans found for this member",
-                    "member_uuid": member_uuid,
-                    "email": email if email else "Not provided",
-                    "scans": scan_res
-                }, status=200)
-
-            screenshots = []
-
-            for scan_id in scan_ids:
-                ss_url = f"{optery_base}v1/optouts/{member_uuid}/get-screenshots-by-scan/{scan_id}"
-                try:
-                    ss_response = requests.get(ss_url, headers=headers)
-                    if ss_response.status_code == 200:
-                        ss_res = safe_json_parse(ss_response.text, {})
-                    else:
-                        ss_res = {"error": f"API returned {ss_response.status_code}"}
-                except requests.exceptions.RequestException as e:
-                    logger.error(f"Screenshot API request failed for scan {scan_id}: {str(e)}")
-                    ss_res = {"error": "Failed to fetch screenshots"}
-
-                screenshots.append({
-                    "scan_id": scan_id,
-                    "screenshots": ss_res
-                })
-
-                # Save history with email
-                try:
-                    OpteryScanHistory.objects.create(
-                        member_uuid=member_uuid,
-                        email=email, 
-                        scan_id=scan_id,
-                        raw_scan_data=scan_res,
-                        raw_screenshot_data=ss_res
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to save history for scan {scan_id}: {str(e)}")
-
+            # Start background task
+            task = fetch_optery_scans_background.delay(member_uuid, email)
+            
             return Response({
+                "status": "processing",
+                "task_id": task.id,
+                "message": "Request submitted successfully. Use GET with task_id to check status.",
                 "member_uuid": member_uuid,
-                "email": email if email else "Not provided", 
-                "scans": scan_res,
-                "screenshots": screenshots,
-                "message": "Data fetched successfully"
-            })
+                "email": email if email else "Not provided"
+            }, status=202)  # 202 Accepted
 
-        except ValueError as e:
-            if "configuration" in str(e):
-                return Response({"error": "Service configuration error"}, status=500)
-            return Response({"error": str(e)}, status=400)
         except Exception as e:
-            logger.error(f"Unexpected error in OpteryCombinedView: {str(e)}", exc_info=True)
-            return Response({"error": "Internal server error"}, status=500)
+            logger.error(f"Error starting background task: {str(e)}", exc_info=True)
+            return Response({
+                "error": "Failed to start background task",
+                "details": str(e)
+            }, status=500)
 
-"""--------------------Optery Data Optery History List View--------------------"""
+    def get(self, request):
+        """
+        Check task status or get final result
+        Query params: task_id (optional), member_uuid (for backwards compatibility)
+        """
+        task_id = request.query_params.get("task_id")
+        member_uuid = request.query_params.get("member_uuid")
+        email = request.query_params.get("email")
+        
+        # If task_id provided, check task status
+        if task_id:
+            try:
+                task_result = AsyncResult(task_id)
+                
+                if task_result.ready():
+                    if task_result.successful():
+                        result = task_result.result
+                        # Return exact same structure as old API
+                        return Response(result, status=200)
+                    else:
+                        return Response({
+                            "status": "failed",
+                            "error": str(task_result.result),
+                            "task_id": task_id
+                        }, status=500)
+                else:
+                    # Task still processing
+                    return Response({
+                        "status": "processing",
+                        "task_id": task_id,
+                        "message": "Task is still running. Please check again in a few seconds."
+                    }, status=202)
+
+            except Exception as e:
+                logger.error(f"Error checking task status: {str(e)}", exc_info=True)
+                return Response({
+                    "error": "Failed to check task status",
+                    "details": str(e)
+                }, status=500)
+        
+        # Backwards compatibility: If no task_id, start task immediately (old behavior)
+        elif member_uuid:
+            logger.warning("Using deprecated direct GET call. Please use POST to start task.")
+            task = fetch_optery_scans_background.delay(member_uuid, email)
+            return Response({
+                "status": "processing",
+                "task_id": task.id,
+                "message": "Task started. Use task_id to check status.",
+                "member_uuid": member_uuid
+            }, status=202)
+        
+        else:
+            return Response({
+                "error": "Either task_id or member_uuid is required"
+            }, status=400)
+
+
+"""--------------------Optery History List View--------------------"""
+
 class OpteryHistoryListView(APIView):
-
     def get(self, request, email_str):
         try:
             if not email_str:
@@ -307,25 +272,20 @@ class OpteryHistoryListView(APIView):
             return Response({"error": "Internal server error"}, status=500)
 
 
-
-"""--------------------Optery Data Custom Removal List View--------------------"""
-
+"""--------------------Custom Removal List View--------------------"""
 
 class CustomRemovalListView(APIView):
     def get(self, request):
         try:
             optery_base, optery_token = get_optery_config()
             
-            # Query parameter
             member_uuid = request.query_params.get("member_uuid")
             
-            #No member_uuid error handling
             if not member_uuid:
                 return Response({
                     "error": "member_uuid is required as query parameter"
                 }, status=400)
             
-            # UUID validation (optional but recommended)
             if len(member_uuid) < 10:
                 return Response({
                     "error": "Invalid member_uuid format"
@@ -356,9 +316,7 @@ class CustomRemovalListView(APIView):
             return Response({"error": "Internal server error"}, status=500)
 
 
-
-"""--------------------Optery Data Custom Removal Create View--------------------"""
-
+"""--------------------Custom Removal Create View--------------------"""
 
 class CustomRemovalCreateView(APIView):
     def post(self, request):
@@ -369,7 +327,6 @@ class CustomRemovalCreateView(APIView):
             if not member_uuid:
                 return Response({"error": "member_uuid is required as query parameter"}, status=400)
 
-            # Validate UUID format
             if len(member_uuid) < 10:
                 return Response({"error": "Invalid member_uuid format"}, status=400)
 
@@ -387,7 +344,6 @@ class CustomRemovalCreateView(APIView):
                     status=400
                 )
 
-            # Validate file size (e.g., 10MB limit)
             if proof_file.size > 10 * 1024 * 1024:
                 return Response({"error": "File size too large (max 10MB)"}, status=400)
 
@@ -411,8 +367,6 @@ class CustomRemovalCreateView(APIView):
                 return Response({"error": "Failed to process file"}, status=400)
 
             headers = {
-                "Content-Type": "application/json",
-                "Accept": "application/json",
                 "Authorization": f"Bearer {optery_token}",
             }
 
@@ -433,33 +387,22 @@ class CustomRemovalCreateView(APIView):
         except Exception as e:
             logger.error(f"Unexpected error in CustomRemovalCreateView: {str(e)}", exc_info=True)
             return Response({"error": "Internal server error"}, status=500)
-        
-
-"""--------------------Optery get_optery_member_by_email Views--------------------"""
-
-from rest_framework import status
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from .models import OpteryMember
-from .serializers import OpteryMemberSerializer
 
 
+"""--------------------Get Optery Member by Email--------------------"""
 
 @api_view(['GET'])
 def get_optery_member_by_email(request, email_str):
     members_queryset = OpteryMember.objects.filter(email__exact=email_str)
 
     if not members_queryset.exists():
-        
         return Response(
             {"error": f"No OpteryMember found with email: {email_str}"},
             status=status.HTTP_404_NOT_FOUND
         )
 
     member = members_queryset.first()
- 
     serializer = OpteryMemberSerializer(member)
-    print("Serialized Data:", serializer.data) 
 
     return Response({
         "success": True,

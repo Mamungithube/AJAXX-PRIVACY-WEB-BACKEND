@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 import environ
+import redis
  
 env = environ.Env()
  
@@ -71,9 +72,10 @@ ALLOWED_HOSTS = [
     '10.10.10.46',
 ]
 
-CSRF_COOKIE_DOMAIN = '.ajaxxdatascrubber.com'
-SESSION_COOKIE_DOMAIN = '.ajaxxdatascrubber.com'
-
+# CSRF_COOKIE_DOMAIN = '.ajaxxdatascrubber.com'
+# SESSION_COOKIE_DOMAIN = '.ajaxxdatascrubber.com'
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
 AUTH_USER_MODEL = "Account.User"
  
 # ==================== INSTALLED APPS ====================
@@ -91,6 +93,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'django_celery_results',
     'stripe',
  
     # Local apps
@@ -100,8 +103,34 @@ INSTALLED_APPS = [
     'Subscriptions',
     'product',
 ]
- 
- 
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')  # ✅ Changed from 'django-db' to Redis
+
+# ==================== CELERY CONFIGURATION (Database Backend) ====================
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_CACHE_BACKEND = 'django-cache' 
+CELERY_TASK_SEND_SENT_EVENT = True
+CELERY_RESULT_EXTENDED = True
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'America/New_York'
+CELERY_TASK_TRACK_STARTED = True
+# Recommended production-safe limits: shorter to avoid long-running tasks
+# Main tasks should complete quickly; increase if you intentionally run long jobs.
+CELERY_TASK_SOFT_TIME_LIMIT = 15 * 60  # 15 minutes
+CELERY_TASK_TIME_LIMIT = 18 * 60  # 18 minutes (hard limit)
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 50
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+# Redis Cache
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/0',
+    }
+}
+
 # ==================== MIDDLEWARE ====================
  
 MIDDLEWARE = [
