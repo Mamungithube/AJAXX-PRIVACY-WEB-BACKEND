@@ -2,7 +2,7 @@ import logging
 import requests
 from celery import shared_task
 from django.conf import settings
-from .models import OpteryScanHistory
+from .models import OpteryScanHistory, OpteryMember  # ✅ NEW: OpteryMember import করুন
 import concurrent.futures
 
 logger = logging.getLogger(__name__)
@@ -45,9 +45,21 @@ def fetch_optery_scans_background(self, member_uuid, email=None):
     try:
         optery_base, optery_token = get_optery_config()
         
-        # Ensure email is set to a non-null default to avoid DB NOT NULL errors
-        email = email or 'Not provided'
-
+        # ✅ NEW: If email not provided, try to get it from OpteryMember table
+        if not email or email == 'Not provided':
+            try:
+                member = OpteryMember.objects.filter(uuid=member_uuid).first()
+                if member and member.email:
+                    email = member.email
+                    logger.info(f"Email found from OpteryMember: {email}")
+                else:
+                    logger.warning(f"No OpteryMember found for UUID: {member_uuid}")
+                    email = 'Not provided'
+            except Exception as e:
+                logger.error(f"Error fetching email from OpteryMember: {str(e)}")
+                email = 'Not provided'
+        
+        # ⚪ UNCHANGED: Rest of the code remains same
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
@@ -127,15 +139,16 @@ def fetch_optery_scans_background(self, member_uuid, email=None):
                 logger.error(f"Screenshot fetch failed for scan {scan_id}: {str(e)}")
                 ss_res = {"error": "Failed to fetch screenshots"}
 
-            # Save to database - if save fails raise to propagate failure
+            # ✅ UPDATED: Save with proper email from OpteryMember
             try:
                 OpteryScanHistory.objects.create(
                     member_uuid=member_uuid,
-                    email=email,
+                    email=email,  # Now this will be actual email from OpteryMember
                     scan_id=scan_id,
                     raw_scan_data=scan_res,
                     raw_screenshot_data=ss_res
                 )
+                logger.info(f"Saved scan history for {email} - scan_id: {scan_id}")  # ✅ NEW: Log success
             except Exception as e:
                 logger.error(f"DB save failed for scan {scan_id}: {str(e)}", exc_info=True)
                 # Raising here will surface the exception to the ThreadPoolExecutor
