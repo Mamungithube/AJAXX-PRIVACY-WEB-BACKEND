@@ -45,18 +45,43 @@ def fetch_optery_scans_background(self, member_uuid, email=None):
     try:
         optery_base, optery_token = get_optery_config()
         
-        # ✅ NEW: If email not provided, try to get it from OpteryMember table
+        # ✅ FIXED: Fetch email from OpteryMember with proper UUID handling
         if not email or email == 'Not provided':
             try:
+                # Try multiple approaches to find the member
+                member = None
+                
+                # Approach 1: Direct filter (works if types match)
                 member = OpteryMember.objects.filter(uuid=member_uuid).first()
+                
+                # Approach 2: If not found, try converting to UUID object
+                if not member:
+                    try:
+                        from uuid import UUID
+                        uuid_obj = UUID(member_uuid) if isinstance(member_uuid, str) else member_uuid
+                        member = OpteryMember.objects.filter(uuid=uuid_obj).first()
+                    except (ValueError, AttributeError) as e:
+                        logger.warning(f"UUID conversion failed: {str(e)}")
+                
+                # Approach 3: Search by string representation
+                if not member:
+                    member = OpteryMember.objects.filter(uuid__iexact=str(member_uuid)).first()
+                
                 if member and member.email:
                     email = member.email
-                    logger.info(f"Email found from OpteryMember: {email}")
+                    logger.info(f"✅ Email found from OpteryMember: {email} for UUID: {member_uuid}")
                 else:
-                    logger.warning(f"No OpteryMember found for UUID: {member_uuid}")
+                    logger.warning(f"❌ No OpteryMember found for UUID: {member_uuid}")
+                    # Debug: Show what's in database
+                    total_members = OpteryMember.objects.count()
+                    logger.info(f"Total OpteryMember records in DB: {total_members}")
+                    if total_members > 0:
+                        sample = OpteryMember.objects.first()
+                        logger.info(f"Sample record - UUID: {sample.uuid}, Email: {sample.email}")
                     email = 'Not provided'
+                    
             except Exception as e:
-                logger.error(f"Error fetching email from OpteryMember: {str(e)}")
+                logger.error(f"❌ Error fetching email from OpteryMember: {str(e)}", exc_info=True)
                 email = 'Not provided'
         
         # ⚪ UNCHANGED: Rest of the code remains same
