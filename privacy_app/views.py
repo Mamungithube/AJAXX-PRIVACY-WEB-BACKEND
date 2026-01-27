@@ -252,6 +252,7 @@ class OpteryHistoryListView(APIView):
             data = [
                 {
                     "id": h.id,
+                    "member_uuid": h.member_uuid,
                     "email": h.email,
                     "scan_id": h.scan_id,
                     "raw_scan_data": h.raw_scan_data,
